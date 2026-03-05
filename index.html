@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>업무일지 — 변호사 전용</title>
+<title>sheet1 — 변호사 전용</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@300;400;500;600;700&family=JetBrains+Mono:wght@300;400;500&family=Noto+Sans+KR:wght@300;400;500&display=swap" rel="stylesheet">
 
@@ -11,7 +11,7 @@
 <script src="https://accounts.google.com/gsi/client" async defer></script>
 <!-- Google API client -->
 <script src="https://apis.google.com/js/api.js" async defer
-  onload="gapiLoaded()" onerror="console.warn('GAPI load failed')"></script>
+  onload="gapiLoaded()" onerror="console.warn('GAPI load failed')"></script>S
 
 <style>
   :root {
@@ -269,7 +269,7 @@
   <aside class="sidebar">
     <div class="sidebar-header">
       <div class="sidebar-logo">Law Journal</div>
-      <div class="sidebar-title">업무일지</div>
+      <div class="sidebar-title">sheet1</div>
     </div>
 
     <!-- GCal Connection Status -->
@@ -996,7 +996,7 @@ function newEntry() {
 function exportEntry() {
   const data = collectForm();
   const lines = [
-    `# 업무일지 — ${fmtDate(data.entryDate||todayKey())}`,``,
+    `# sheet1 — ${fmtDate(data.entryDate||todayKey())}`,``,
     `- 출근: ${data.arrivalTime||'-'}  퇴근: ${data.leaveTime||'-'}`,
     `- 출장: ${data.businessTrip||'없음'} ${data.tripLocation?'/ '+data.tripLocation:''}`,``,
     `## 오늘 한 일\n${data.todayWork||'-'}`,``,
@@ -1011,7 +1011,7 @@ function exportEntry() {
   ].join('\n');
   const blob = new Blob([lines],{type:'text/plain;charset=utf-8'});
   const url  = URL.createObjectURL(blob);
-  const a    = document.createElement('a'); a.href=url; a.download=`업무일지_${data.entryDate||todayKey()}.txt`; a.click();
+  const a    = document.createElement('a'); a.href=url; a.download=`sheet1_${data.entryDate||todayKey()}.txt`; a.click();
   URL.revokeObjectURL(url); showToast('📄 내보내기 완료');
 }
 
@@ -1030,7 +1030,7 @@ function switchView(v) {
 }
 
 function updateTopbar() {
-  document.getElementById('topbarDate').innerHTML = fmtDate(currentDate)+'<span>업무일지</span>';
+  document.getElementById('topbarDate').innerHTML = fmtDate(currentDate)+'<span>sheet1</span>';
 }
 
 // ══════════════════════════════════════════
