@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>sheet1</title>
+<title>업무일지 — 변호사 전용</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@300;400;500;600;700&family=JetBrains+Mono:wght@300;400;500&family=Noto+Sans+KR:wght@300;400;500&display=swap" rel="stylesheet">
 
@@ -11,7 +11,7 @@
 <script src="https://accounts.google.com/gsi/client" async defer></script>
 <!-- Google API client -->
 <script src="https://apis.google.com/js/api.js" async defer
-  onload="gapiLoaded()" onerror="console.warn('GAPI load failed')"></script>S
+  onload="gapiLoaded()" onerror="console.warn('GAPI load failed')"></script>
 
 <style>
   :root {
@@ -269,7 +269,7 @@
   <aside class="sidebar">
     <div class="sidebar-header">
       <div class="sidebar-logo">Law Journal</div>
-      <div class="sidebar-title">sheet1</div>
+      <div class="sidebar-title">업무일지</div>
     </div>
 
     <!-- GCal Connection Status -->
@@ -384,8 +384,8 @@
           <textarea class="field-textarea" id="callNotes" placeholder="통화 상대방, 통화 시각, 주요 내용..."></textarea>
         </div>
         <div class="field-card">
-          <div class="field-label"><span class="field-label-icon">📄</span><span class="field-label-text">작성한 서면</span><span class="field-label-badge green">완료</span></div>
-          <textarea class="field-textarea short" id="writtenDocs" placeholder="서면명, 사건번호, 제출 여부..."></textarea>
+          <div class="field-label"><span class="field-label-icon">📄</span><span class="field-label-text">제출한 서면</span><span class="field-label-badge green">완료</span></div>
+          <textarea class="field-textarea short" id="writtenDocs" placeholder="서면명, 사건번호, 제출일..."></textarea>
         </div>
         <div class="field-card">
           <div class="field-label"><span class="field-label-icon">📮</span><span class="field-label-text">제출 예정 서면</span><span class="field-label-badge red">D-day</span></div>
@@ -932,7 +932,7 @@ async function ensureSheetHeader() {
     if (!row || row[0] !== '날짜') {
       await sheetsUpdate(`${SHEET_NAME}!A1`, [[
         '날짜','출근','퇴근','출장','출장장소',
-        '오늘한일','재판메모','통화내용','작성서면','제출예정서면',
+        '오늘한일','재판메모','통화내용','제출한서면','제출예정서면',
         '직원위임','사건업데이트','배운점','기타','저장시각'
       ]]);
     }
@@ -996,13 +996,13 @@ function newEntry() {
 function exportEntry() {
   const data = collectForm();
   const lines = [
-    `# sheet1 — ${fmtDate(data.entryDate||todayKey())}`,``,
+    `# 업무일지 — ${fmtDate(data.entryDate||todayKey())}`,``,
     `- 출근: ${data.arrivalTime||'-'}  퇴근: ${data.leaveTime||'-'}`,
     `- 출장: ${data.businessTrip||'없음'} ${data.tripLocation?'/ '+data.tripLocation:''}`,``,
     `## 오늘 한 일\n${data.todayWork||'-'}`,``,
     `## 재판 메모\n${data.courtMemo||'-'}`,``,
     `## 통화 내용\n${data.callNotes||'-'}`,``,
-    `## 작성한 서면\n${data.writtenDocs||'-'}`,``,
+    `## 제출한 서면\n${data.writtenDocs||'-'}`,``,
     `## 제출 예정 서면\n${data.pendingDocs||'-'}`,``,
     `## 직원 위임\n${data.delegated||'-'}`,``,
     `## 사건 업데이트\n${data.caseUpdates||'-'}`,``,
@@ -1011,7 +1011,7 @@ function exportEntry() {
   ].join('\n');
   const blob = new Blob([lines],{type:'text/plain;charset=utf-8'});
   const url  = URL.createObjectURL(blob);
-  const a    = document.createElement('a'); a.href=url; a.download=`sheet1_${data.entryDate||todayKey()}.txt`; a.click();
+  const a    = document.createElement('a'); a.href=url; a.download=`업무일지_${data.entryDate||todayKey()}.txt`; a.click();
   URL.revokeObjectURL(url); showToast('📄 내보내기 완료');
 }
 
@@ -1030,7 +1030,7 @@ function switchView(v) {
 }
 
 function updateTopbar() {
-  document.getElementById('topbarDate').innerHTML = fmtDate(currentDate)+'<span>sheet1</span>';
+  document.getElementById('topbarDate').innerHTML = fmtDate(currentDate)+'<span>업무일지</span>';
 }
 
 // ══════════════════════════════════════════
@@ -1104,7 +1104,7 @@ function fullSearch(q) {
   countEl.textContent=`${hits.length}건`;
   if(!hits.length){results.innerHTML='<div class="empty-state"><div class="es-icon">🗂</div><p>검색 결과 없음</p></div>';return;}
   const hl=s=>(s||'').replace(new RegExp(q.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'),'gi'),m=>`<mark>${m}</mark>`);
-  const fLabels={todayWork:'오늘 한 일',courtMemo:'재판 메모',callNotes:'통화',writtenDocs:'작성 서면',pendingDocs:'제출 예정',delegated:'위임',caseUpdates:'사건 업데이트',learned:'배운 점',etc:'기타'};
+  const fLabels={todayWork:'오늘 한 일',courtMemo:'재판 메모',callNotes:'통화',writtenDocs:'제출한 서면',pendingDocs:'제출 예정',delegated:'위임',caseUpdates:'사건 업데이트',learned:'배운 점',etc:'기타'};
   results.innerHTML=hits.map(([k,e])=>{
     const tags=Object.entries(fLabels).filter(([f])=>(e[f]||'').toLowerCase().includes(lq)).map(([,l])=>`<span class="sr-field-tag">${l}</span>`).join('');
     const snippet=Object.entries(fLabels).map(([f,l])=>{
@@ -1139,7 +1139,7 @@ function renderListView() {
   if(!keys.length){el.innerHTML='<div class="empty-state"><div class="es-icon">📋</div><p>저장된 일지가 없습니다</p></div>';return;}
   el.innerHTML=`<div style="max-width:900px;">`+keys.map(k=>{
     const e=entries[k];
-    const fields=[e.todayWork&&{icon:'📝',label:'오늘 한 일',val:e.todayWork},e.courtMemo&&{icon:'⚖️',label:'재판 메모',val:e.courtMemo},e.writtenDocs&&{icon:'📄',label:'작성 서면',val:e.writtenDocs}].filter(Boolean);
+    const fields=[e.todayWork&&{icon:'📝',label:'오늘 한 일',val:e.todayWork},e.courtMemo&&{icon:'⚖️',label:'재판 메모',val:e.courtMemo},e.writtenDocs&&{icon:'📄',label:'제출한 서면',val:e.writtenDocs}].filter(Boolean);
     return `<div class="search-result-item" onclick="calSelectDate('${k}')">
       <div class="sr-date" style="display:flex;align-items:center;gap:10px;">
         ${fmtDate(k)}
