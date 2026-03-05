@@ -556,7 +556,7 @@ let gcalEvents   = [];      // today's events cache
 function gapiLoaded() {
   gapi.load('client', async () => {
     try {
-      await gapi.client.init({ discoveryDocs: [DISCOVERY, 'https://sheets.googleapis.com/$discovery/rest?version=v4'] });
+      await gapi.client.init({ discoveryDocs: [DISCOVERY] });
       gapiReady = true;
       // Restore saved token
       const saved = localStorage.getItem(TOKEN_KEY);
@@ -892,27 +892,49 @@ function saveEntry() {
 }
 
 // ══════════════════════════════════════════
-//  GOOGLE SHEETS 연동
+//  GOOGLE SHEETS 연동 (직접 fetch 방식)
 // ══════════════════════════════════════════
+const SHEETS_BASE = 'https://sheets.googleapis.com/v4/spreadsheets';
+
+async function sheetsGet(range) {
+  const url = `${SHEETS_BASE}/${SHEET_ID}/values/${encodeURIComponent(range)}`;
+  const res = await fetch(url, { headers: { Authorization: `Bearer ${accessToken}` } });
+  if (!res.ok) throw new Error(`Sheets GET ${res.status}`);
+  return res.json();
+}
+
+async function sheetsUpdate(range, values) {
+  const url = `${SHEETS_BASE}/${SHEET_ID}/values/${encodeURIComponent(range)}?valueInputOption=RAW`;
+  const res = await fetch(url, {
+    method: 'PUT',
+    headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ values })
+  });
+  if (!res.ok) throw new Error(`Sheets PUT ${res.status}`);
+  return res.json();
+}
+
+async function sheetsAppend(range, values) {
+  const url = `${SHEETS_BASE}/${SHEET_ID}/values/${encodeURIComponent(range)}:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`;
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ values })
+  });
+  if (!res.ok) throw new Error(`Sheets POST ${res.status}`);
+  return res.json();
+}
+
 async function ensureSheetHeader() {
   try {
-    const res = await gapi.client.sheets.spreadsheets.values.get({
-      spreadsheetId: SHEET_ID,
-      range: `${SHEET_NAME}!A1:Z1`,
-    });
-    const row = (res.result.values || [[]])[0];
+    const data = await sheetsGet(`${SHEET_NAME}!A1:Z1`);
+    const row = (data.values || [[]])[0];
     if (!row || row[0] !== '날짜') {
-      // 헤더 없으면 생성
-      await gapi.client.sheets.spreadsheets.values.update({
-        spreadsheetId: SHEET_ID,
-        range: `${SHEET_NAME}!A1`,
-        valueInputOption: 'RAW',
-        resource: { values: [[
-          '날짜','출근','퇴근','출장','출장장소',
-          '오늘한일','재판메모','통화내용','작성서면','제출예정서면',
-          '직원위임','사건업데이트','배운점','기타','저장시각'
-        ]] }
-      });
+      await sheetsUpdate(`${SHEET_NAME}!A1`, [[
+        '날짜','출근','퇴근','출장','출장장소',
+        '오늘한일','재판메모','통화내용','작성서면','제출예정서면',
+        '직원위임','사건업데이트','배운점','기타','저장시각'
+      ]]);
     }
   } catch(e) { console.warn('헤더 확인 실패', e); }
 }
@@ -920,12 +942,8 @@ async function ensureSheetHeader() {
 async function saveToSheets(data, dateKey) {
   try {
     await ensureSheetHeader();
-    // 기존 행 찾기
-    const res = await gapi.client.sheets.spreadsheets.values.get({
-      spreadsheetId: SHEET_ID,
-      range: `${SHEET_NAME}!A:A`,
-    });
-    const rows = res.result.values || [];
+    const colData = await sheetsGet(`${SHEET_NAME}!A:A`);
+    const rows = colData.values || [];
     let rowIdx = rows.findIndex(r => r[0] === dateKey);
     const values = [[
       dateKey,
@@ -938,22 +956,9 @@ async function saveToSheets(data, dateKey) {
       new Date().toISOString()
     ]];
     if (rowIdx > 0) {
-      // 기존 행 업데이트
-      await gapi.client.sheets.spreadsheets.values.update({
-        spreadsheetId: SHEET_ID,
-        range: `${SHEET_NAME}!A${rowIdx+1}`,
-        valueInputOption: 'RAW',
-        resource: { values }
-      });
+      await sheetsUpdate(`${SHEET_NAME}!A${rowIdx+1}`, values);
     } else {
-      // 새 행 추가
-      await gapi.client.sheets.spreadsheets.values.append({
-        spreadsheetId: SHEET_ID,
-        range: `${SHEET_NAME}!A:A`,
-        valueInputOption: 'RAW',
-        insertDataOption: 'INSERT_ROWS',
-        resource: { values }
-      });
+      await sheetsAppend(`${SHEET_NAME}!A:A`, values);
     }
     showToast('☁️ Google Sheets에도 저장됨');
   } catch(e) {
@@ -965,11 +970,8 @@ async function saveToSheets(data, dateKey) {
 async function loadFromSheets(dateKey) {
   if (!accessToken) return null;
   try {
-    const res = await gapi.client.sheets.spreadsheets.values.get({
-      spreadsheetId: SHEET_ID,
-      range: `${SHEET_NAME}!A:O`,
-    });
-    const rows = res.result.values || [];
+    const data = await sheetsGet(`${SHEET_NAME}!A:O`);
+    const rows = data.values || [];
     const row = rows.find(r => r[0] === dateKey);
     if (!row) return null;
     return {
