@@ -533,9 +533,11 @@ const DB_KEY      = 'lawJournal_entries';
 const KAKAO_KEY   = 'lawJournal_kakao';
 const CLIENT_KEY  = 'lawJournal_gcalClientId';
 const TOKEN_KEY   = 'lawJournal_gcalToken';
-const SCOPE       = 'https://www.googleapis.com/auth/calendar.readonly';
+const SCOPE       = 'https://www.googleapis.com/auth/calendar.readonly https://www.googleapis.com/auth/spreadsheets';
 const DISCOVERY   = 'https://www.googleapis.com/discovery/v1/apis/calendar/v3/rest';
 const LBOX_CAL_ID = '5dd32843ebd4cd2e01b418ad5add2f9dade2e80a033bc6d74742580fdc98d022@group.calendar.google.com';
+const SHEET_ID    = '10Ab2Gsf8Wq2TgECmU4m6FNMo5Ywd1Uz2cuVOBJRilQ8';
+const SHEET_NAME  = '업무일지';
 
 // ══════════════════════════════════════════
 //  STATE
@@ -554,7 +556,7 @@ let gcalEvents   = [];      // today's events cache
 function gapiLoaded() {
   gapi.load('client', async () => {
     try {
-      await gapi.client.init({ discoveryDocs: [DISCOVERY] });
+      await gapi.client.init({ discoveryDocs: [DISCOVERY, 'https://sheets.googleapis.com/$discovery/rest?version=v4'] });
       gapiReady = true;
       // Restore saved token
       const saved = localStorage.getItem(TOKEN_KEY);
@@ -685,28 +687,14 @@ async function syncGCalEvents(dateKey) {
     const dayStart = new Date(target + 'T00:00:00+09:00').toISOString();
     const dayEnd   = new Date(target + 'T23:59:59+09:00').toISOString();
 
-    // LBOX 캘린더 + primary 캘린더 동시 조회
-    const [respLbox, respPrimary] = await Promise.all([
-      gapi.client.calendar.events.list({
-        calendarId: LBOX_CAL_ID,
-        timeMin: dayStart, timeMax: dayEnd,
-        singleEvents: true, orderBy: 'startTime', maxResults: 30,
-      }),
-      gapi.client.calendar.events.list({
-        calendarId: 'primary',
-        timeMin: dayStart, timeMax: dayEnd,
-        singleEvents: true, orderBy: 'startTime', maxResults: 30,
-      }),
-    ]);
-
-    // LBOX 일정에 출처 표시 후 합치기, 시간순 정렬
-    const lboxItems = (respLbox.result.items || []).map(e => ({...e, _src:'LBOX'}));
-    const primaryItems = (respPrimary.result.items || []).map(e => ({...e, _src:'기본'}));
-    gcalEvents = [...lboxItems, ...primaryItems].sort((a, b) => {
-      const ta = a.start.dateTime || a.start.date;
-      const tb = b.start.dateTime || b.start.date;
-      return ta.localeCompare(tb);
+    // LBOX 캘린더만 조회
+    const respLbox = await gapi.client.calendar.events.list({
+      calendarId: LBOX_CAL_ID,
+      timeMin: dayStart, timeMax: dayEnd,
+      singleEvents: true, orderBy: 'startTime', maxResults: 30,
     });
+
+    gcalEvents = (respLbox.result.items || []).map(e => ({...e, _src:'LBOX'}));
     renderGCalStrip(gcalEvents, target);
     setGCalStatus('connected', `연결됨 — ${gcalEvents.length}건`);
     document.getElementById('syncBtn').disabled = false;
@@ -863,22 +851,31 @@ function fillForm(data) {
   FIELDS.forEach(id => { const el=document.getElementById(id); if(el && data[id]!==undefined) el.value=data[id]; });
 }
 
-function loadEntryToForm(dateKey) {
+async function loadEntryToForm(dateKey) {
   currentDate = dateKey;
-  const entries = getEntries();
-  if (entries[dateKey]) {
-    fillForm(entries[dateKey]);
+  // Sheets에서 먼저 시도
+  const sheetsData = await loadFromSheets(dateKey);
+  if (sheetsData) {
+    fillForm(sheetsData);
+    // 로컬에도 동기화
+    const entries = getEntries();
+    entries[dateKey] = { ...sheetsData, _savedAt: new Date().toISOString() };
+    saveEntries(entries);
   } else {
-    FIELDS.forEach(id => {
-      if (id==='entryDate') { document.getElementById(id).value=dateKey; return; }
-      if (id==='arrivalTime') { document.getElementById(id).value='09:00'; return; }
-      const el=document.getElementById(id); if(el) el.value='';
-    });
-    document.getElementById('businessTrip').value='없음';
+    const entries = getEntries();
+    if (entries[dateKey]) {
+      fillForm(entries[dateKey]);
+    } else {
+      FIELDS.forEach(id => {
+        if (id==='entryDate') { document.getElementById(id).value=dateKey; return; }
+        if (id==='arrivalTime') { document.getElementById(id).value='09:00'; return; }
+        const el=document.getElementById(id); if(el) el.value='';
+      });
+      document.getElementById('businessTrip').value='없음';
+    }
   }
   updateTopbar();
   renderKakaoUpdates();
-  // Sync GCal for selected date
   if (accessToken) syncGCalEvents(dateKey);
 }
 
@@ -890,6 +887,100 @@ function saveEntry() {
   saveEntries(entries);
   renderRecentList(); renderCalendarMini();
   showToast('✅ 저장됨 — ' + dateKey);
+  // Google Sheets에도 저장
+  if (accessToken) saveToSheets(data, dateKey);
+}
+
+// ══════════════════════════════════════════
+//  GOOGLE SHEETS 연동
+// ══════════════════════════════════════════
+async function ensureSheetHeader() {
+  try {
+    const res = await gapi.client.sheets.spreadsheets.values.get({
+      spreadsheetId: SHEET_ID,
+      range: `${SHEET_NAME}!A1:Z1`,
+    });
+    const row = (res.result.values || [[]])[0];
+    if (!row || row[0] !== '날짜') {
+      // 헤더 없으면 생성
+      await gapi.client.sheets.spreadsheets.values.update({
+        spreadsheetId: SHEET_ID,
+        range: `${SHEET_NAME}!A1`,
+        valueInputOption: 'RAW',
+        resource: { values: [[
+          '날짜','출근','퇴근','출장','출장장소',
+          '오늘한일','재판메모','통화내용','작성서면','제출예정서면',
+          '직원위임','사건업데이트','배운점','기타','저장시각'
+        ]] }
+      });
+    }
+  } catch(e) { console.warn('헤더 확인 실패', e); }
+}
+
+async function saveToSheets(data, dateKey) {
+  try {
+    await ensureSheetHeader();
+    // 기존 행 찾기
+    const res = await gapi.client.sheets.spreadsheets.values.get({
+      spreadsheetId: SHEET_ID,
+      range: `${SHEET_NAME}!A:A`,
+    });
+    const rows = res.result.values || [];
+    let rowIdx = rows.findIndex(r => r[0] === dateKey);
+    const values = [[
+      dateKey,
+      data.arrivalTime||'', data.leaveTime||'',
+      data.businessTrip||'', data.tripLocation||'',
+      data.todayWork||'', data.courtMemo||'', data.callNotes||'',
+      data.writtenDocs||'', data.pendingDocs||'',
+      data.delegated||'', data.caseUpdates||'',
+      data.learned||'', data.etc||'',
+      new Date().toISOString()
+    ]];
+    if (rowIdx > 0) {
+      // 기존 행 업데이트
+      await gapi.client.sheets.spreadsheets.values.update({
+        spreadsheetId: SHEET_ID,
+        range: `${SHEET_NAME}!A${rowIdx+1}`,
+        valueInputOption: 'RAW',
+        resource: { values }
+      });
+    } else {
+      // 새 행 추가
+      await gapi.client.sheets.spreadsheets.values.append({
+        spreadsheetId: SHEET_ID,
+        range: `${SHEET_NAME}!A:A`,
+        valueInputOption: 'RAW',
+        insertDataOption: 'INSERT_ROWS',
+        resource: { values }
+      });
+    }
+    showToast('☁️ Google Sheets에도 저장됨');
+  } catch(e) {
+    console.warn('Sheets 저장 실패', e);
+    showToast('⚠️ Sheets 저장 실패 — 로컬에는 저장됨');
+  }
+}
+
+async function loadFromSheets(dateKey) {
+  if (!accessToken) return null;
+  try {
+    const res = await gapi.client.sheets.spreadsheets.values.get({
+      spreadsheetId: SHEET_ID,
+      range: `${SHEET_NAME}!A:O`,
+    });
+    const rows = res.result.values || [];
+    const row = rows.find(r => r[0] === dateKey);
+    if (!row) return null;
+    return {
+      entryDate: row[0]||'', arrivalTime: row[1]||'', leaveTime: row[2]||'',
+      businessTrip: row[3]||'없음', tripLocation: row[4]||'',
+      todayWork: row[5]||'', courtMemo: row[6]||'', callNotes: row[7]||'',
+      writtenDocs: row[8]||'', pendingDocs: row[9]||'',
+      delegated: row[10]||'', caseUpdates: row[11]||'',
+      learned: row[12]||'', etc: row[13]||'',
+    };
+  } catch(e) { console.warn('Sheets 불러오기 실패', e); return null; }
 }
 
 function newEntry() {
