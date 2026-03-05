@@ -535,6 +535,7 @@ const CLIENT_KEY  = 'lawJournal_gcalClientId';
 const TOKEN_KEY   = 'lawJournal_gcalToken';
 const SCOPE       = 'https://www.googleapis.com/auth/calendar.readonly';
 const DISCOVERY   = 'https://www.googleapis.com/discovery/v1/apis/calendar/v3/rest';
+const LBOX_CAL_ID = '5dd32843ebd4cd2e01b418ad5add2f9dade2e80a033bc6d74742580fdc98d022@group.calendar.google.com';
 
 // ══════════════════════════════════════════
 //  STATE
@@ -684,16 +685,28 @@ async function syncGCalEvents(dateKey) {
     const dayStart = new Date(target + 'T00:00:00+09:00').toISOString();
     const dayEnd   = new Date(target + 'T23:59:59+09:00').toISOString();
 
-    const resp = await gapi.client.calendar.events.list({
-      calendarId: 'primary',
-      timeMin: dayStart,
-      timeMax: dayEnd,
-      singleEvents: true,
-      orderBy: 'startTime',
-      maxResults: 30,
-    });
+    // LBOX 캘린더 + primary 캘린더 동시 조회
+    const [respLbox, respPrimary] = await Promise.all([
+      gapi.client.calendar.events.list({
+        calendarId: LBOX_CAL_ID,
+        timeMin: dayStart, timeMax: dayEnd,
+        singleEvents: true, orderBy: 'startTime', maxResults: 30,
+      }),
+      gapi.client.calendar.events.list({
+        calendarId: 'primary',
+        timeMin: dayStart, timeMax: dayEnd,
+        singleEvents: true, orderBy: 'startTime', maxResults: 30,
+      }),
+    ]);
 
-    gcalEvents = resp.result.items || [];
+    // LBOX 일정에 출처 표시 후 합치기, 시간순 정렬
+    const lboxItems = (respLbox.result.items || []).map(e => ({...e, _src:'LBOX'}));
+    const primaryItems = (respPrimary.result.items || []).map(e => ({...e, _src:'기본'}));
+    gcalEvents = [...lboxItems, ...primaryItems].sort((a, b) => {
+      const ta = a.start.dateTime || a.start.date;
+      const tb = b.start.dateTime || b.start.date;
+      return ta.localeCompare(tb);
+    });
     renderGCalStrip(gcalEvents, target);
     setGCalStatus('connected', `연결됨 — ${gcalEvents.length}건`);
     document.getElementById('syncBtn').disabled = false;
@@ -766,15 +779,19 @@ function renderGCalStrip(events, dateKey) {
   msg && msg.remove();
   row.innerHTML = events.map(ev => {
     const isAllDay = !!ev.start.date;
+    const isLbox   = ev._src === 'LBOX';
     const timeStr  = isAllDay ? '종일' :
       new Date(ev.start.dateTime).toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'}) +
       ' – ' +
       new Date(ev.end.dateTime).toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'});
+    const badge = isLbox
+      ? `<span style="font-size:9.5px;padding:1px 5px;background:#c00;color:white;border-radius:3px;margin-right:2px;">LBOX</span>`
+      : '';
     return `<div class="gcal-chip${isAllDay?' gcal-chip-allday':''}"
       onclick="insertEventToJournal('${ev.summary.replace(/'/g,"\\'")}','${timeStr}')"
       title="클릭하면 재판메모에 추가">
       <span class="gcal-chip-time">${timeStr}</span>
-      <span>${ev.summary}</span>
+      ${badge}<span>${ev.summary}</span>
     </div>`;
   }).join('');
 }
