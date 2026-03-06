@@ -13,6 +13,11 @@
 <script src="https://apis.google.com/js/api.js" async defer
   onload="gapiLoaded()" onerror="console.warn('GAPI load failed')"></script>
 
+<!-- Firebase CDN (compat) -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+
 <style>
   :root {
     --ink: #1a1209; --ink2: #3d2e1e; --ink3: #7a6652;
@@ -26,6 +31,33 @@
   body { font-family:'Noto Sans KR',sans-serif; background:var(--paper); color:var(--ink); min-height:100vh; overflow-x:hidden; }
 
   .app { display:flex; height:100vh; }
+
+  /* ── LOGIN SCREEN ── */
+  #loginScreen {
+    position:fixed; inset:0; z-index:9999;
+    background:var(--ink);
+    display:flex; align-items:center; justify-content:center;
+  }
+  .login-card {
+    background:var(--paper); border-radius:16px;
+    padding:48px 44px; width:360px;
+    box-shadow:0 20px 60px rgba(0,0,0,0.5);
+    text-align:center;
+  }
+  .login-logo { font-family:'Noto Serif KR',serif; font-size:10px; font-weight:300; letter-spacing:0.32em; color:var(--gold); text-transform:uppercase; margin-bottom:8px; }
+  .login-title { font-family:'Noto Serif KR',serif; font-size:26px; font-weight:600; color:var(--ink); margin-bottom:6px; }
+  .login-divider { width:40px; height:2px; background:var(--gold); margin:16px auto 20px; }
+  .login-desc { font-size:13px; color:var(--ink3); line-height:1.8; margin-bottom:32px; }
+  .login-google-btn {
+    display:flex; align-items:center; justify-content:center; gap:10px;
+    width:100%; padding:13px 20px;
+    background:white; border:1.5px solid var(--paper3);
+    border-radius:8px; font-family:'Noto Sans KR',sans-serif;
+    font-size:14px; font-weight:500; color:var(--ink);
+    cursor:pointer; transition:all 0.15s;
+    box-shadow:0 2px 8px rgba(0,0,0,0.08);
+  }
+  .login-google-btn:hover { border-color:var(--gold); box-shadow:0 4px 16px rgba(0,0,0,0.14); transform:translateY(-1px); }
 
   /* ── SIDEBAR ── */
   .sidebar { width:280px; min-width:280px; background:var(--ink); color:var(--paper2); display:flex; flex-direction:column; border-right:1px solid rgba(184,134,11,0.3); overflow:hidden; }
@@ -61,6 +93,29 @@
   .entry-preview { font-size:11px; color:rgba(242,237,228,0.5); margin-top:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   .new-entry-btn { margin:12px; padding:11px; background:var(--accent); color:white; border:none; border-radius:7px; font-family:'Noto Sans KR',sans-serif; font-size:13px; font-weight:500; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:8px; transition:background 0.15s; }
   .new-entry-btn:hover { background:var(--accent2); }
+
+  /* User panel */
+  .user-panel {
+    border-top:1px solid rgba(184,134,11,0.2);
+    padding:12px 16px;
+    display:flex; align-items:center; gap:10px;
+    flex-shrink:0;
+  }
+  .user-avatar {
+    width:32px; height:32px; border-radius:50%;
+    background:var(--accent); display:flex; align-items:center; justify-content:center;
+    font-size:13px; font-weight:600; color:white; flex-shrink:0;
+  }
+  .user-info { flex:1; min-width:0; }
+  .user-name { font-size:12px; font-weight:500; color:var(--paper); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .user-email { font-size:10.5px; color:rgba(242,237,228,0.45); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .logout-btn {
+    background:none; border:1px solid rgba(184,134,11,0.3); color:rgba(242,237,228,0.45);
+    padding:4px 8px; border-radius:4px; font-size:10.5px;
+    cursor:pointer; flex-shrink:0; transition:all 0.12s;
+    font-family:'Noto Sans KR',sans-serif;
+  }
+  .logout-btn:hover { border-color:var(--accent); color:var(--accent2); }
 
   /* ── MAIN ── */
   .main { flex:1; display:flex; flex-direction:column; overflow:hidden; }
@@ -201,6 +256,41 @@
   .meta-card select { border:none; background:none; font-family:'Noto Sans KR',sans-serif; font-size:13px; color:var(--ink); outline:none; cursor:pointer; }
   .divider { width:1px; height:18px; background:var(--paper3); }
 
+  /* Case tag autocomplete */
+  .case-tag-wrap {
+    position:relative; display:flex; align-items:center; flex-wrap:wrap;
+    gap:5px; flex:1; min-width:0;
+  }
+  .case-tag {
+    display:flex; align-items:center; gap:4px;
+    background:rgba(139,32,0,0.08); border:1px solid rgba(139,32,0,0.2);
+    color:var(--accent); border-radius:20px; font-size:11.5px;
+    padding:2px 9px; white-space:nowrap; flex-shrink:0;
+  }
+  .case-tag-remove { cursor:pointer; font-size:14px; line-height:1; opacity:0.55; margin-left:2px; }
+  .case-tag-remove:hover { opacity:1; }
+  .case-tag-input {
+    border:none; background:none; font-family:'Noto Sans KR',sans-serif;
+    font-size:13px; color:var(--ink); outline:none; min-width:100px; flex:1;
+  }
+  .case-dropdown {
+    position:absolute; top:calc(100% + 6px); left:0; min-width:260px;
+    background:white; border:1px solid var(--paper3); border-radius:8px;
+    box-shadow:0 4px 20px var(--shadow); z-index:200; overflow:hidden;
+    display:none;
+  }
+  .case-dropdown.open { display:block; }
+  .case-dropdown-item {
+    padding:9px 14px; font-size:13px; cursor:pointer;
+    transition:background 0.1s; border-bottom:1px solid var(--paper3);
+    display:flex; flex-direction:column; gap:2px;
+  }
+  .case-dropdown-item:last-child { border-bottom:none; }
+  .case-dropdown-item:hover, .case-dropdown-item.active { background:var(--paper2); }
+  .case-dropdown-title { color:var(--ink); font-weight:500; }
+  .case-dropdown-client { color:var(--ink3); font-size:11.5px; }
+  .case-dropdown-empty { padding:10px 14px; font-size:12px; color:var(--ink3); }
+
   /* Kakao */
   .kakao-wrap { max-width:1100px; margin-bottom:14px; }
   .kakao-card { background:white; border:1px solid var(--paper3); border-radius:10px; overflow:hidden; }
@@ -263,7 +353,27 @@
 </style>
 </head>
 <body>
-<div class="app">
+
+<!-- LOGIN SCREEN -->
+<div id="loginScreen" style="display:none;">
+  <div class="login-card">
+    <div class="login-logo">Law Journal</div>
+    <div class="login-title">업무일지</div>
+    <div class="login-divider"></div>
+    <div class="login-desc">변호사 전용 업무일지 시스템입니다.<br>Google 계정으로 로그인하여 시작하세요.</div>
+    <button class="login-google-btn" onclick="loginWithGoogle()">
+      <svg width="18" height="18" viewBox="0 0 24 24">
+        <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+        <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+        <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
+        <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+      </svg>
+      Google 계정으로 로그인
+    </button>
+  </div>
+</div>
+
+<div class="app" id="appContainer" style="display:none;">
 
   <!-- SIDEBAR -->
   <aside class="sidebar">
@@ -293,6 +403,16 @@
     </nav>
 
     <button class="new-entry-btn" onclick="newEntry()">＋ 새 일지 작성</button>
+
+    <!-- User Panel -->
+    <div class="user-panel" id="userPanel">
+      <div class="user-avatar" id="userAvatar">?</div>
+      <div class="user-info">
+        <div class="user-name" id="userDisplayName"></div>
+        <div class="user-email" id="userEmail"></div>
+      </div>
+      <button class="logout-btn" onclick="logoutFirebase()">로그아웃</button>
+    </div>
   </aside>
 
   <!-- MAIN -->
@@ -367,6 +487,18 @@
           <input type="text" id="tripLocation" placeholder="법원명, 장소 등..."
             style="border:none;background:none;font-family:'Noto Sans KR',sans-serif;font-size:13px;color:var(--ink);outline:none;width:100%;">
         </div>
+        <!-- 사건 태그 -->
+        <div class="meta-card" style="flex:2;overflow:visible;position:relative;">
+          <label style="flex-shrink:0;">사건</label><div class="divider" style="flex-shrink:0;"></div>
+          <div class="case-tag-wrap" id="caseTagWrap">
+            <input type="text" class="case-tag-input" id="caseTagInput"
+              placeholder="사건 검색..."
+              oninput="onCaseTagInput(this.value)"
+              onkeydown="onCaseTagKeydown(event)"
+              onfocus="onCaseTagFocus()">
+            <div class="case-dropdown" id="caseDropdown"></div>
+          </div>
+        </div>
       </div>
 
       <!-- Journal fields -->
@@ -390,6 +522,11 @@
         <div class="field-card">
           <div class="field-label"><span class="field-label-icon">📮</span><span class="field-label-text">제출 예정 서면</span><span class="field-label-badge red">D-day</span></div>
           <textarea class="field-textarea short" id="pendingDocs" placeholder="서면명, 제출기한, 담당 사건..."></textarea>
+        </div>
+        <!-- 당일 수령 문서 -->
+        <div class="field-card full">
+          <div class="field-label"><span class="field-label-icon">📬</span><span class="field-label-text">당일 수령 문서</span></div>
+          <textarea class="field-textarea short" id="receivedDocs" placeholder="수령한 서면명, 사건번호, 발송인..."></textarea>
         </div>
         <div class="field-card">
           <div class="field-label"><span class="field-label-icon">👥</span><span class="field-label-text">직원에게 위임한 일</span></div>
@@ -527,9 +664,24 @@
 
 <script>
 // ══════════════════════════════════════════
-//  CONFIG & CONSTANTS
+//  FIREBASE CONFIG & INIT
 // ══════════════════════════════════════════
-const DB_KEY      = 'lawJournal_entries';
+const firebaseConfig = {
+  apiKey: "AIzaSyALrcNMt-vY4k6FfOUwZZZxBm_1ZUUfHeg",
+  authDomain: "case-manager-74bcb.firebaseapp.com",
+  projectId: "case-manager-74bcb",
+  storageBucket: "case-manager-74bcb.firebasestorage.app",
+  messagingSenderId: "690506208142",
+  appId: "1:690506208142:web:ef34384758104ff31c8adf"
+};
+
+firebase.initializeApp(firebaseConfig);
+const auth = firebase.auth();
+const db   = firebase.firestore();
+
+// ══════════════════════════════════════════
+//  GCAL CONFIG & CONSTANTS
+// ══════════════════════════════════════════
 const KAKAO_KEY   = 'lawJournal_kakao';
 const CLIENT_KEY  = 'lawJournal_gcalClientId';
 const TOKEN_KEY   = 'lawJournal_gcalToken';
@@ -542,13 +694,102 @@ const SHEET_NAME  = 'Sheet1';
 // ══════════════════════════════════════════
 //  STATE
 // ══════════════════════════════════════════
-let currentView  = 'write';
-let currentDate  = todayKey();
+let currentUser      = null;
+let entriesCache     = {};       // Firestore journal data (in-memory)
+let unsubEntries     = null;     // onSnapshot unsubscribe fn
+let currentView      = 'write';
+let currentDate      = todayKey();
 let calYear, calMonth;
-let gapiReady    = false;   // gapi.client loaded
-let tokenClient  = null;    // GIS token client
-let accessToken  = null;    // current OAuth token
-let gcalEvents   = [];      // today's events cache
+let gapiReady        = false;
+let tokenClient      = null;
+let accessToken      = null;
+let gcalEvents       = [];
+let linkedCases      = [];       // [{id, title, client}, ...]
+let casesCache       = null;     // from Firestore users/{uid}/cases
+let caseDropdownItems = [];
+let caseDropdownIdx  = -1;
+
+// ══════════════════════════════════════════
+//  FIREBASE AUTH
+// ══════════════════════════════════════════
+auth.onAuthStateChanged(user => {
+  if (user) {
+    currentUser = user;
+    showApp();
+  } else {
+    currentUser = null;
+    if (unsubEntries) { unsubEntries(); unsubEntries = null; }
+    entriesCache = {};
+    showLogin();
+  }
+});
+
+function showLogin() {
+  document.getElementById('loginScreen').style.display = 'flex';
+  document.getElementById('appContainer').style.display = 'none';
+}
+
+function showApp() {
+  document.getElementById('loginScreen').style.display = 'none';
+  document.getElementById('appContainer').style.display = 'flex';
+
+  // Update user panel
+  const name = currentUser.displayName || currentUser.email || '사용자';
+  document.getElementById('userDisplayName').textContent = currentUser.displayName || '사용자';
+  document.getElementById('userEmail').textContent = currentUser.email || '';
+  document.getElementById('userAvatar').textContent = name.charAt(0).toUpperCase();
+
+  // Init state
+  const now = new Date();
+  calYear  = now.getFullYear();
+  calMonth = now.getMonth();
+
+  currentDate = todayKey();
+  document.getElementById('entryDate').value    = currentDate;
+  document.getElementById('arrivalTime').value  = '09:00';
+  updateTopbar();
+  updateSetupStepNums();
+
+  // Load Firestore
+  initFirestore();
+  // Load cases for autocomplete
+  loadCasesCache();
+}
+
+async function loginWithGoogle() {
+  const provider = new firebase.auth.GoogleAuthProvider();
+  try {
+    await auth.signInWithPopup(provider);
+  } catch(e) {
+    alert('로그인 실패: ' + (e.message || e));
+  }
+}
+
+function logoutFirebase() {
+  if (!confirm('로그아웃하시겠습니까?')) return;
+  auth.signOut();
+}
+
+// ══════════════════════════════════════════
+//  FIRESTORE REAL-TIME SYNC
+// ══════════════════════════════════════════
+function initFirestore() {
+  if (unsubEntries) unsubEntries();
+  unsubEntries = db.collection('users').doc(currentUser.uid).collection('journal')
+    .onSnapshot(snap => {
+      entriesCache = {};
+      snap.forEach(doc => { entriesCache[doc.id] = doc.data(); });
+      renderRecentList();
+      renderCalendarMini();
+      if (currentView === 'list') { renderStats(); renderListView(); }
+      else renderStats();
+    }, err => {
+      console.warn('Firestore snapshot error', err);
+    });
+
+  // Load today after listener is set up
+  loadEntryToForm(currentDate);
+}
 
 // ══════════════════════════════════════════
 //  GAPI BOOTSTRAP
@@ -558,7 +799,6 @@ function gapiLoaded() {
     try {
       await gapi.client.init({ discoveryDocs: [DISCOVERY] });
       gapiReady = true;
-      // Restore saved token
       const saved = localStorage.getItem(TOKEN_KEY);
       if (saved) {
         try {
@@ -568,7 +808,7 @@ function gapiLoaded() {
             gapi.client.setToken({ access_token: accessToken });
             setGCalStatus('connected', '연결됨 — 동기화 준비');
             document.getElementById('syncBtn').disabled = false;
-            syncGCalEvents();
+            if (currentUser) syncGCalEvents();
           } else {
             localStorage.removeItem(TOKEN_KEY);
           }
@@ -600,7 +840,6 @@ function handleTokenResponse(resp) {
   accessToken = resp.access_token;
   gapi.client.setToken({ access_token: accessToken });
 
-  // Store with expiry (default 1 hour)
   const expiresAt = Date.now() + (resp.expires_in || 3600) * 1000;
   localStorage.setItem(TOKEN_KEY, JSON.stringify({
     access_token: accessToken, expires_at: expiresAt
@@ -617,7 +856,7 @@ function handleTokenResponse(resp) {
 }
 
 // ══════════════════════════════════════════
-//  AUTH ACTIONS
+//  AUTH ACTIONS (GCal)
 // ══════════════════════════════════════════
 function saveClientId() {
   const val = document.getElementById('clientIdInput').value.trim();
@@ -687,7 +926,6 @@ async function syncGCalEvents(dateKey) {
     const dayStart = new Date(target + 'T00:00:00+09:00').toISOString();
     const dayEnd   = new Date(target + 'T23:59:59+09:00').toISOString();
 
-    // LBOX 캘린더만 조회
     const respLbox = await gapi.client.calendar.events.list({
       calendarId: LBOX_CAL_ID,
       timeMin: dayStart, timeMax: dayEnd,
@@ -699,16 +937,12 @@ async function syncGCalEvents(dateKey) {
     setGCalStatus('connected', `연결됨 — ${gcalEvents.length}건`);
     document.getElementById('syncBtn').disabled = false;
     showToast(`📅 ${target} 일정 ${gcalEvents.length}건 로드`);
-
-    // Update calendar mini dots
     renderCalendarMini();
 
   } catch(e) {
     console.error('GCal fetch error', e);
     setGCalStatus('', '동기화 실패');
     document.getElementById('syncBtn').disabled = false;
-
-    // Token might be expired — try refresh
     if (e.status === 401) {
       accessToken = null;
       localStorage.removeItem(TOKEN_KEY);
@@ -754,8 +988,7 @@ async function testFetch() {
 //  RENDER GCAL STRIP
 // ══════════════════════════════════════════
 function renderGCalStrip(events, dateKey) {
-  const row  = document.getElementById('gcalEventsRow');
-  const msg  = document.getElementById('gcalEmptyMsg');
+  const row   = document.getElementById('gcalEventsRow');
   const title = document.getElementById('gcalStripTitle');
   title.textContent = `📅 ${dateKey || currentDate} 일정 (Google Calendar)`;
 
@@ -764,7 +997,6 @@ function renderGCalStrip(events, dateKey) {
     return;
   }
 
-  msg && msg.remove();
   row.innerHTML = events.map(ev => {
     const isAllDay = !!ev.start.date;
     const isLbox   = ev._src === 'LBOX';
@@ -828,11 +1060,12 @@ function updateSetupStepNums() {
 }
 
 // ══════════════════════════════════════════
-//  DATA LAYER
+//  DATA LAYER (Firestore)
 // ══════════════════════════════════════════
-function getEntries() { try { return JSON.parse(localStorage.getItem(DB_KEY)) || {}; } catch { return {}; } }
-function saveEntries(e) { localStorage.setItem(DB_KEY, JSON.stringify(e)); }
+function getEntries() { return entriesCache; }
+
 function todayKey() { return new Date().toISOString().slice(0,10); }
+
 function fmtDate(k) {
   const d = new Date(k+'T00:00:00');
   const days = ['일','월','화','수','목','금','토'];
@@ -840,55 +1073,61 @@ function fmtDate(k) {
 }
 
 const FIELDS = ['entryDate','arrivalTime','leaveTime','businessTrip','tripLocation',
-  'todayWork','courtMemo','callNotes','writtenDocs','pendingDocs','delegated','caseUpdates','learned','etc'];
+  'todayWork','courtMemo','callNotes','writtenDocs','pendingDocs','receivedDocs',
+  'delegated','caseUpdates','learned','etc'];
 
 function collectForm() {
   const data = {};
   FIELDS.forEach(id => { const el=document.getElementById(id); if(el) data[id]=el.value; });
   return data;
 }
+
 function fillForm(data) {
   FIELDS.forEach(id => { const el=document.getElementById(id); if(el && data[id]!==undefined) el.value=data[id]; });
+  linkedCases = Array.isArray(data.linkedCases) ? data.linkedCases : [];
+  renderLinkedCases();
 }
 
 async function loadEntryToForm(dateKey) {
   currentDate = dateKey;
-  // Sheets에서 먼저 시도
   const sheetsData = await loadFromSheets(dateKey);
   if (sheetsData) {
     fillForm(sheetsData);
-    // 로컬에도 동기화
-    const entries = getEntries();
-    entries[dateKey] = { ...sheetsData, _savedAt: new Date().toISOString() };
-    saveEntries(entries);
-  } else {
-    const entries = getEntries();
-    if (entries[dateKey]) {
-      fillForm(entries[dateKey]);
-    } else {
-      FIELDS.forEach(id => {
-        if (id==='entryDate') { document.getElementById(id).value=dateKey; return; }
-        if (id==='arrivalTime') { document.getElementById(id).value='09:00'; return; }
-        const el=document.getElementById(id); if(el) el.value='';
-      });
-      document.getElementById('businessTrip').value='없음';
+    if (currentUser) {
+      db.collection('users').doc(currentUser.uid).collection('journal').doc(dateKey)
+        .set({...sheetsData, _savedAt: new Date().toISOString()}, {merge: true})
+        .catch(e => console.warn('Sheets→Firestore sync failed', e));
     }
+  } else if (entriesCache[dateKey]) {
+    fillForm(entriesCache[dateKey]);
+  } else {
+    FIELDS.forEach(id => {
+      if (id==='entryDate')   { document.getElementById(id).value=dateKey; return; }
+      if (id==='arrivalTime') { document.getElementById(id).value='09:00'; return; }
+      const el=document.getElementById(id); if(el) el.value='';
+    });
+    document.getElementById('businessTrip').value='없음';
+    linkedCases = [];
+    renderLinkedCases();
   }
   updateTopbar();
   renderKakaoUpdates();
   if (accessToken) syncGCalEvents(dateKey);
 }
 
-function saveEntry() {
-  const data = collectForm();
+async function saveEntry() {
+  if (!currentUser) { showToast('⚠ 로그인이 필요합니다'); return; }
+  const data    = collectForm();
   const dateKey = data.entryDate || todayKey();
-  const entries = getEntries();
-  entries[dateKey] = { ...data, _savedAt: new Date().toISOString() };
-  saveEntries(entries);
-  renderRecentList(); renderCalendarMini();
-  showToast('✅ 저장됨 — ' + dateKey);
-  // Google Sheets에도 저장
-  if (accessToken) saveToSheets(data, dateKey);
+  const payload = { ...data, linkedCases, _savedAt: new Date().toISOString() };
+  try {
+    await db.collection('users').doc(currentUser.uid).collection('journal').doc(dateKey).set(payload);
+    showToast('✅ 저장됨 — ' + dateKey);
+    if (accessToken) saveToSheets(data, dateKey);
+  } catch(e) {
+    console.error('Save error', e);
+    showToast('❌ 저장 실패: ' + e.message);
+  }
 }
 
 // ══════════════════════════════════════════
@@ -932,7 +1171,7 @@ async function ensureSheetHeader() {
     if (!row || row[0] !== '날짜') {
       await sheetsUpdate(`${SHEET_NAME}!A1`, [[
         '날짜','출근','퇴근','출장','출장장소',
-        '오늘한일','재판메모','통화내용','제출한서면','제출예정서면',
+        '오늘한일','재판메모','통화내용','제출한서면','제출예정서면','당일수령문서',
         '직원위임','사건업데이트','배운점','기타','저장시각'
       ]]);
     }
@@ -944,13 +1183,13 @@ async function saveToSheets(data, dateKey) {
     await ensureSheetHeader();
     const colData = await sheetsGet(`${SHEET_NAME}!A:A`);
     const rows = colData.values || [];
-    let rowIdx = rows.findIndex(r => r[0] === dateKey);
+    const rowIdx = rows.findIndex(r => r[0] === dateKey);
     const values = [[
       dateKey,
       data.arrivalTime||'', data.leaveTime||'',
       data.businessTrip||'', data.tripLocation||'',
       data.todayWork||'', data.courtMemo||'', data.callNotes||'',
-      data.writtenDocs||'', data.pendingDocs||'',
+      data.writtenDocs||'', data.pendingDocs||'', data.receivedDocs||'',
       data.delegated||'', data.caseUpdates||'',
       data.learned||'', data.etc||'',
       new Date().toISOString()
@@ -963,14 +1202,14 @@ async function saveToSheets(data, dateKey) {
     showToast('☁️ Google Sheets에도 저장됨');
   } catch(e) {
     console.warn('Sheets 저장 실패', e);
-    showToast('⚠️ Sheets 저장 실패 — 로컬에는 저장됨');
+    showToast('⚠️ Sheets 저장 실패 — Firestore에는 저장됨');
   }
 }
 
 async function loadFromSheets(dateKey) {
   if (!accessToken) return null;
   try {
-    const data = await sheetsGet(`${SHEET_NAME}!A:O`);
+    const data = await sheetsGet(`${SHEET_NAME}!A:P`);
     const rows = data.values || [];
     const row = rows.find(r => r[0] === dateKey);
     if (!row) return null;
@@ -978,9 +1217,9 @@ async function loadFromSheets(dateKey) {
       entryDate: row[0]||'', arrivalTime: row[1]||'', leaveTime: row[2]||'',
       businessTrip: row[3]||'없음', tripLocation: row[4]||'',
       todayWork: row[5]||'', courtMemo: row[6]||'', callNotes: row[7]||'',
-      writtenDocs: row[8]||'', pendingDocs: row[9]||'',
-      delegated: row[10]||'', caseUpdates: row[11]||'',
-      learned: row[12]||'', etc: row[13]||'',
+      writtenDocs: row[8]||'', pendingDocs: row[9]||'', receivedDocs: row[10]||'',
+      delegated: row[11]||'', caseUpdates: row[12]||'',
+      learned: row[13]||'', etc: row[14]||'',
     };
   } catch(e) { console.warn('Sheets 불러오기 실패', e); return null; }
 }
@@ -991,24 +1230,126 @@ function newEntry() {
 }
 
 // ══════════════════════════════════════════
+//  CASES AUTOCOMPLETE
+// ══════════════════════════════════════════
+async function loadCasesCache() {
+  if (!currentUser) return;
+  try {
+    const snap = await db.collection('users').doc(currentUser.uid).collection('cases').get();
+    casesCache = snap.docs.map(d => ({id: d.id, ...d.data()}));
+  } catch(e) {
+    casesCache = [];
+    console.warn('Cases load failed', e);
+  }
+}
+
+function onCaseTagInput(val) {
+  if (!val.trim()) { closeCaseDropdown(); return; }
+  const lq   = val.toLowerCase();
+  const list = (casesCache || []).filter(c =>
+    (c.title||'').toLowerCase().includes(lq) || (c.client||'').toLowerCase().includes(lq)
+  ).slice(0, 8);
+  showCaseDropdown(list, val);
+}
+
+function onCaseTagFocus() {
+  const val = document.getElementById('caseTagInput').value;
+  if (val.trim()) onCaseTagInput(val);
+}
+
+function onCaseTagKeydown(e) {
+  if (e.key === 'ArrowDown')  { e.preventDefault(); moveCaseDropdown(1); }
+  else if (e.key === 'ArrowUp')   { e.preventDefault(); moveCaseDropdown(-1); }
+  else if (e.key === 'Enter')     { e.preventDefault(); selectCaseDropdownCurrent(); }
+  else if (e.key === 'Escape')    { closeCaseDropdown(); }
+}
+
+function moveCaseDropdown(dir) {
+  caseDropdownIdx = Math.max(-1, Math.min(caseDropdownItems.length - 1, caseDropdownIdx + dir));
+  document.querySelectorAll('.case-dropdown-item').forEach((el, i) => {
+    el.classList.toggle('active', i === caseDropdownIdx);
+  });
+}
+
+function selectCaseDropdownCurrent() {
+  if (caseDropdownIdx >= 0 && caseDropdownItems[caseDropdownIdx]) {
+    addCaseTag(caseDropdownItems[caseDropdownIdx]);
+  }
+}
+
+function showCaseDropdown(list) {
+  const dd = document.getElementById('caseDropdown');
+  caseDropdownItems = list;
+  caseDropdownIdx   = -1;
+  if (!list.length) {
+    dd.innerHTML = '<div class="case-dropdown-empty">검색 결과 없음</div>';
+  } else {
+    dd.innerHTML = list.map((c, i) =>
+      `<div class="case-dropdown-item" onmousedown="event.preventDefault();addCaseTag(caseDropdownItems[${i}])">
+        <div class="case-dropdown-title">${c.title || '(제목 없음)'}</div>
+        ${c.client ? `<div class="case-dropdown-client">의뢰인: ${c.client}</div>` : ''}
+      </div>`
+    ).join('');
+  }
+  dd.classList.add('open');
+}
+
+function closeCaseDropdown() {
+  document.getElementById('caseDropdown').classList.remove('open');
+  caseDropdownIdx = -1;
+}
+
+function addCaseTag(c) {
+  if (!c) return;
+  if (!linkedCases.find(x => x.id === c.id)) {
+    linkedCases.push({id: c.id, title: c.title || '', client: c.client || ''});
+  }
+  document.getElementById('caseTagInput').value = '';
+  closeCaseDropdown();
+  renderLinkedCases();
+}
+
+function removeCaseTag(id) {
+  linkedCases = linkedCases.filter(c => c.id !== id);
+  renderLinkedCases();
+}
+
+function renderLinkedCases() {
+  const wrap  = document.getElementById('caseTagWrap');
+  const input = document.getElementById('caseTagInput');
+  // Remove existing tags (preserve input and dropdown)
+  wrap.querySelectorAll('.case-tag').forEach(el => el.remove());
+  linkedCases.forEach(c => {
+    const tag = document.createElement('div');
+    tag.className = 'case-tag';
+    const label = c.title + (c.client ? ' (' + c.client + ')' : '');
+    tag.innerHTML = `<span>${label}</span><span class="case-tag-remove" onclick="removeCaseTag('${c.id.replace(/'/g,"\\'")}')">×</span>`;
+    wrap.insertBefore(tag, input);
+  });
+}
+
+// ══════════════════════════════════════════
 //  EXPORT
 // ══════════════════════════════════════════
 function exportEntry() {
   const data = collectForm();
+  const caseTagsStr = linkedCases.map(c => c.title + (c.client ? ' (' + c.client + ')' : '')).join(', ');
   const lines = [
     `# 업무일지 — ${fmtDate(data.entryDate||todayKey())}`,``,
     `- 출근: ${data.arrivalTime||'-'}  퇴근: ${data.leaveTime||'-'}`,
-    `- 출장: ${data.businessTrip||'없음'} ${data.tripLocation?'/ '+data.tripLocation:''}`,``,
+    `- 출장: ${data.businessTrip||'없음'} ${data.tripLocation?'/ '+data.tripLocation:''}`,
+    caseTagsStr ? `- 연결 사건: ${caseTagsStr}` : null,``,
     `## 오늘 한 일\n${data.todayWork||'-'}`,``,
     `## 재판 메모\n${data.courtMemo||'-'}`,``,
     `## 통화 내용\n${data.callNotes||'-'}`,``,
     `## 제출한 서면\n${data.writtenDocs||'-'}`,``,
     `## 제출 예정 서면\n${data.pendingDocs||'-'}`,``,
+    `## 당일 수령 문서\n${data.receivedDocs||'-'}`,``,
     `## 직원 위임\n${data.delegated||'-'}`,``,
     `## 사건 업데이트\n${data.caseUpdates||'-'}`,``,
     `## 오늘 배운 점\n${data.learned||'-'}`,``,
     `## 기타\n${data.etc||'-'}`,
-  ].join('\n');
+  ].filter(l => l !== null).join('\n');
   const blob = new Blob([lines],{type:'text/plain;charset=utf-8'});
   const url  = URL.createObjectURL(blob);
   const a    = document.createElement('a'); a.href=url; a.download=`업무일지_${data.entryDate||todayKey()}.txt`; a.click();
@@ -1024,7 +1365,7 @@ function switchView(v) {
   document.querySelectorAll('.nav-btn').forEach(el=>el.classList.remove('active'));
   document.getElementById('view-'+v).classList.add('active');
   document.getElementById('nav-'+v).classList.add('active');
-  if (v==='list')  { renderListView(); renderStats(); }
+  if (v==='list')   { renderListView(); renderStats(); }
   if (v==='search') document.getElementById('fullSearchInput').focus();
   if (v==='setup')  updateSetupStepNums();
 }
@@ -1104,7 +1445,7 @@ function fullSearch(q) {
   countEl.textContent=`${hits.length}건`;
   if(!hits.length){results.innerHTML='<div class="empty-state"><div class="es-icon">🗂</div><p>검색 결과 없음</p></div>';return;}
   const hl=s=>(s||'').replace(new RegExp(q.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'),'gi'),m=>`<mark>${m}</mark>`);
-  const fLabels={todayWork:'오늘 한 일',courtMemo:'재판 메모',callNotes:'통화',writtenDocs:'제출한 서면',pendingDocs:'제출 예정',delegated:'위임',caseUpdates:'사건 업데이트',learned:'배운 점',etc:'기타'};
+  const fLabels={todayWork:'오늘 한 일',courtMemo:'재판 메모',callNotes:'통화',writtenDocs:'제출한 서면',pendingDocs:'제출 예정',receivedDocs:'당일 수령 문서',delegated:'위임',caseUpdates:'사건 업데이트',learned:'배운 점',etc:'기타'};
   results.innerHTML=hits.map(([k,e])=>{
     const tags=Object.entries(fLabels).filter(([f])=>(e[f]||'').toLowerCase().includes(lq)).map(([,l])=>`<span class="sr-field-tag">${l}</span>`).join('');
     const snippet=Object.entries(fLabels).map(([f,l])=>{
@@ -1199,29 +1540,33 @@ function showToast(msg) {
   clearTimeout(toastTimer); toastTimer=setTimeout(()=>el.classList.remove('show'),2400);
 }
 
-setInterval(()=>{
-  const data=collectForm();
-  if(Object.values(data).some(v=>v&&v.trim&&v.trim())){
-    const dateKey=data.entryDate||todayKey(); const entries=getEntries();
-    entries[dateKey]={...data,_savedAt:new Date().toISOString()}; saveEntries(entries);
-    renderRecentList();
+setInterval(async () => {
+  if (!currentUser) return;
+  const data = collectForm();
+  if (Object.values(data).some(v => v && v.trim && v.trim())) {
+    const dateKey = data.entryDate || todayKey();
+    try {
+      await db.collection('users').doc(currentUser.uid).collection('journal').doc(dateKey)
+        .set({...data, linkedCases, _savedAt: new Date().toISOString()});
+    } catch(e) { console.warn('Auto-save failed', e); }
   }
-},60000);
+}, 60000);
 
-document.addEventListener('keydown',e=>{
-  if((e.ctrlKey||e.metaKey)&&e.key==='s'){e.preventDefault();saveEntry();}
+document.addEventListener('keydown', e => {
+  if ((e.ctrlKey || e.metaKey) && e.key === 's') { e.preventDefault(); saveEntry(); }
+});
+
+document.addEventListener('click', e => {
+  if (!e.target.closest('#caseTagWrap')) closeCaseDropdown();
 });
 
 // ══════════════════════════════════════════
 //  INIT
 // ══════════════════════════════════════════
-window.onload=function(){
-  const now=new Date(); calYear=now.getFullYear(); calMonth=now.getMonth();
-  document.getElementById('entryDate').value=todayKey();
-  document.getElementById('arrivalTime').value='09:00';
-  loadEntryToForm(todayKey());
-  renderCalendarMini(); renderRecentList(); updateTopbar(); renderStats();
-  updateSetupStepNums();
+window.onload = function() {
+  // Show login screen by default; auth.onAuthStateChanged handles the rest
+  document.getElementById('loginScreen').style.display = 'flex';
+  document.getElementById('appContainer').style.display = 'none';
 };
 </script>
 </body>
