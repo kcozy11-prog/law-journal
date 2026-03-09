@@ -976,8 +976,12 @@ async function fetchTasks() {
     let allTasks = [];
     for (const list of lists) {
       try {
+        const now = new Date();
+        const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0).toISOString();
+        const todayEnd   = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59).toISOString();
         const resp = await gapi.client.tasks.tasks.list({
           tasklist: list.id, showCompleted: false, showHidden: false, maxResults: 50,
+          dueMin: todayStart, dueMax: todayEnd,
         });
         const items = (resp.result.items || []).filter(t => t.status !== 'completed');
         allTasks = allTasks.concat(items.map(t => ({...t, _listTitle: list.title})));
