@@ -985,8 +985,9 @@ async function fetchTasks() {
         });
         const items = (resp.result.items || []).filter(t => {
           if (t.status === 'completed') return false;
-          if (!t.due) return false;
-          return t.due.slice(0, 10) <= todayStr; // 오늘 포함 이전 미완료 할일
+          // due 날짜 있으면 오늘 이전인 것만, 없으면 모두 포함
+          if (t.due) return t.due.slice(0, 10) <= todayStr;
+          return true;
         });
         allTasks = allTasks.concat(items.map(t => ({...t, _listTitle: list.title})));
       } catch(e) {}
