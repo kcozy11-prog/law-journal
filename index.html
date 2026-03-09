@@ -986,7 +986,7 @@ async function fetchTasks() {
         const items = (resp.result.items || []).filter(t => {
           if (t.status === 'completed') return false;
           if (!t.due) return false;
-          return t.due.slice(0, 10) === todayStr;
+          return t.due.slice(0, 10) <= todayStr; // 오늘 포함 이전 미완료 할일
         });
         allTasks = allTasks.concat(items.map(t => ({...t, _listTitle: list.title})));
       } catch(e) {}
