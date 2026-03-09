@@ -985,9 +985,11 @@ async function fetchTasks() {
         });
         const items = (resp.result.items || []).filter(t => {
           if (t.status === 'completed') return false;
-          // due 날짜 있으면 오늘 이전인 것만, 없으면 모두 포함
-          if (t.due) return t.due.slice(0, 10) <= todayStr;
-          return true;
+          if (!t.due) return false; // 기한 없는 할일 제외
+          // UTC due date를 한국 시간(KST=UTC+9)으로 변환
+          const dueKST = new Date(new Date(t.due).getTime() + 9 * 60 * 60 * 1000);
+          const dueDateKST = dueKST.toISOString().slice(0, 10);
+          return dueDateKST <= todayStr; // 마감일 지난 것 + 오늘 것
         });
         allTasks = allTasks.concat(items.map(t => ({...t, _listTitle: list.title})));
       } catch(e) {}
