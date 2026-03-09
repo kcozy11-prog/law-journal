@@ -810,7 +810,6 @@ function gapiLoaded() {
   gapi.load('client', async () => {
     try {
       await gapi.client.init({ discoveryDocs: [DISCOVERY] });
-      try { await gapi.client.load('tasks', 'v1'); } catch(e) { console.warn('Tasks API load failed', e); }
       gapiReady = true;
       const saved = localStorage.getItem(TOKEN_KEY);
       if (saved) {
@@ -971,19 +970,23 @@ async function syncGCalEvents(dateKey) {
 async function fetchTasks() {
   if (!accessToken || !gapiReady) return;
   try {
-    const listsResp = await gapi.client.tasks.tasklists.list({ maxResults: 10 });
-    const lists = listsResp.result.items || [];
+    const todayStr = new Date().toLocaleDateString('en-CA', {timeZone: 'Asia/Seoul'});
+    const listsResp = await gapi.client.request({
+      path: 'https://tasks.googleapis.com/tasks/v1/users/@me/lists',
+      params: { maxResults: 10 }
+    });
+    const lists = (listsResp.result.items || []);
     let allTasks = [];
     for (const list of lists) {
       try {
-        const resp = await gapi.client.tasks.tasks.list({
-          tasklist: list.id, showCompleted: false, showHidden: false, maxResults: 100,
+        const resp = await gapi.client.request({
+          path: `https://tasks.googleapis.com/tasks/v1/lists/${list.id}/tasks`,
+          params: { showCompleted: false, showHidden: false, maxResults: 100 }
         });
-        const todayStr = new Date().toLocaleDateString('en-CA', {timeZone: 'Asia/Seoul'}); // "2026-03-09"
         const items = (resp.result.items || []).filter(t => {
           if (t.status === 'completed') return false;
-          if (!t.due) return false; // 기한 없는 태스크 제외
-          return t.due.slice(0, 10) === todayStr; // 오늘 기한인 것만
+          if (!t.due) return false;
+          return t.due.slice(0, 10) === todayStr;
         });
         allTasks = allTasks.concat(items.map(t => ({...t, _listTitle: list.title})));
       } catch(e) {}
