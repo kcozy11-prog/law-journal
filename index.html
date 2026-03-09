@@ -976,14 +976,15 @@ async function fetchTasks() {
     let allTasks = [];
     for (const list of lists) {
       try {
-        const now = new Date();
-        const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0).toISOString();
-        const todayEnd   = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59).toISOString();
         const resp = await gapi.client.tasks.tasks.list({
-          tasklist: list.id, showCompleted: false, showHidden: false, maxResults: 50,
-          dueMin: todayStart, dueMax: todayEnd,
+          tasklist: list.id, showCompleted: false, showHidden: false, maxResults: 100,
         });
-        const items = (resp.result.items || []).filter(t => t.status !== 'completed');
+        const todayStr = new Date().toLocaleDateString('en-CA', {timeZone: 'Asia/Seoul'}); // "2026-03-09"
+        const items = (resp.result.items || []).filter(t => {
+          if (t.status === 'completed') return false;
+          if (!t.due) return false; // 기한 없는 태스크 제외
+          return t.due.slice(0, 10) === todayStr; // 오늘 기한인 것만
+        });
         allTasks = allTasks.concat(items.map(t => ({...t, _listTitle: list.title})));
       } catch(e) {}
     }
@@ -995,8 +996,8 @@ async function fetchTasks() {
       return;
     }
     row.innerHTML = allTasks.map(t => `
-      <div class="gcal-event-chip" style="background:rgba(45,90,39,0.15);border-color:rgba(45,90,39,0.4);">
-        <div class="chip-title">☐ ${t.title || '(제목 없음)'}</div>
+      <div class="gcal-event-chip" style="background:rgba(45,90,39,0.15);border-color:rgba(45,90,39,0.4);padding:4px 10px;">
+        <div class="chip-title" style="font-size:11px;">☐ ${t.title || '(제목 없음)'}</div>
         <div class="chip-time" style="font-size:10px;color:var(--ink3);">${t._listTitle}</div>
       </div>`).join('');
   } catch(e) {
