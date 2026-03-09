@@ -697,9 +697,8 @@ const db   = firebase.firestore();
 const KAKAO_KEY   = 'lawJournal_kakao';
 const CLIENT_KEY  = 'lawJournal_gcalClientId';
 const TOKEN_KEY   = 'lawJournal_gcalToken';
-const SCOPE       = 'https://www.googleapis.com/auth/calendar.readonly https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/tasks.readonly';
+const SCOPE       = 'https://www.googleapis.com/auth/calendar.readonly https://www.googleapis.com/auth/spreadsheets';
 const DISCOVERY   = 'https://www.googleapis.com/discovery/v1/apis/calendar/v3/rest';
-const TASKS_DISCOVERY = 'https://www.googleapis.com/discovery/v1/apis/tasks/v1/rest';
 const LBOX_CAL_ID = '5dd32843ebd4cd2e01b418ad5add2f9dade2e80a033bc6d74742580fdc98d022@group.calendar.google.com';
 const SHEET_ID    = '10Ab2Gsf8Wq2TgECmU4m6FNMo5Ywd1Uz2cuVOBJRilQ8';
 const SHEET_NAME  = 'Sheet1';
@@ -811,11 +810,6 @@ function gapiLoaded() {
   gapi.load('client', async () => {
     try {
       await gapi.client.init({ discoveryDocs: [DISCOVERY] });
-      // Tasks API는 동적으로 별도 로드
-      await new Promise((resolve, reject) => {
-        gapi.client.load('https://www.googleapis.com/discovery/v1/apis/tasks/v1/rest')
-          .then(resolve).catch(resolve); // Tasks API 실패해도 계속 진행
-      });
       gapiReady = true;
       const saved = localStorage.getItem(TOKEN_KEY);
       if (saved) {
@@ -826,7 +820,7 @@ function gapiLoaded() {
             gapi.client.setToken({ access_token: accessToken });
             setGCalStatus('connected', '연결됨 — 동기화 준비');
             document.getElementById('syncBtn').disabled = false;
-            if (currentUser) { syncGCalEvents(); fetchTasks(); }
+            if (currentUser) syncGCalEvents();
           } else {
             localStorage.removeItem(TOKEN_KEY);
           }
@@ -870,7 +864,6 @@ function handleTokenResponse(resp) {
   document.getElementById('signOutBtn').style.display = '';
   showToast('✅ Google Calendar 연결됨');
   syncGCalEvents();
-  fetchTasks();
   updateSetupStepNums();
 }
 
