@@ -810,7 +810,12 @@ function initFirestore() {
 function gapiLoaded() {
   gapi.load('client', async () => {
     try {
-      await gapi.client.init({ discoveryDocs: [DISCOVERY, TASKS_DISCOVERY] });
+      await gapi.client.init({ discoveryDocs: [DISCOVERY] });
+      // Tasks API는 동적으로 별도 로드
+      await new Promise((resolve, reject) => {
+        gapi.client.load('https://www.googleapis.com/discovery/v1/apis/tasks/v1/rest')
+          .then(resolve).catch(resolve); // Tasks API 실패해도 계속 진행
+      });
       gapiReady = true;
       const saved = localStorage.getItem(TOKEN_KEY);
       if (saved) {
