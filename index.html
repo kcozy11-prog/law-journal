@@ -445,18 +445,6 @@
         </div>
       </div>
 
-      <!-- Tasks Strip -->
-      <div class="gcal-strip" id="tasksStrip" style="display:none;">
-        <div class="gcal-strip-header">
-          <span>✅</span>
-          <span class="gcal-strip-title">오늘 할일 (Google Tasks)</span>
-          <button class="gcal-strip-refresh" onclick="fetchTasks()">↻ 새로고침</button>
-        </div>
-        <div class="gcal-events-row" id="tasksRow">
-          <span class="gcal-empty" id="tasksEmptyMsg">할일이 없습니다.</span>
-        </div>
-      </div>
-
       <!-- Kakao -->
       <div class="kakao-wrap">
         <div class="kakao-card">
@@ -963,51 +951,6 @@ async function syncGCalEvents(dateKey) {
     } else {
       showToast('❌ 동기화 실패: ' + (e.message || '알 수 없는 오류'));
     }
-  }
-}
-
-async function fetchTasks() {
-  if (!accessToken || !gapiReady) return;
-  try {
-    const now = new Date();
-    const seoulOffset = 9 * 60;
-    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0);
-    const todayEnd   = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
-    const dueMin = new Date(todayStart.getTime() - seoulOffset * 60000).toISOString();
-    const dueMax = new Date(todayEnd.getTime() - seoulOffset * 60000).toISOString();
-
-    const listsResp = await gapi.client.tasks.tasklists.list({ maxResults: 10 });
-    const lists = listsResp.result.items || [];
-    let allTasks = [];
-    for (const list of lists) {
-      try {
-        const resp = await gapi.client.tasks.tasks.list({
-          tasklist: list.id,
-          showCompleted: false,
-          showHidden: false,
-          maxResults: 50,
-        });
-        const items = (resp.result.items || []).filter(t => t.status !== 'completed');
-        allTasks = allTasks.concat(items.map(t => ({...t, _listTitle: list.title})));
-      } catch(e) { /* skip this list */ }
-    }
-
-    const row = document.getElementById('tasksRow');
-    const strip = document.getElementById('tasksStrip');
-    strip.style.display = '';
-
-    if (!allTasks.length) {
-      row.innerHTML = '<span class="gcal-empty">오늘 할일이 없습니다. 🎉</span>';
-      return;
-    }
-
-    row.innerHTML = allTasks.map(t => `
-      <div class="gcal-event-chip" style="background:rgba(45,90,39,0.15);border-color:rgba(45,90,39,0.4);">
-        <div class="chip-title">☐ ${t.title || '(제목 없음)'}</div>
-        ${t.due ? `<div class="chip-time" style="font-size:10px;color:var(--ink3);">${t._listTitle}</div>` : `<div class="chip-time" style="font-size:10px;color:var(--ink3);">${t._listTitle}</div>`}
-      </div>`).join('');
-  } catch(e) {
-    console.warn('Tasks fetch error', e);
   }
 }
 
