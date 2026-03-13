@@ -352,6 +352,17 @@ body { font-family:'Noto Sans KR',sans-serif; background:var(--paper); color:var
               <button class="date-nav-btn" onclick="navigateDate(1)">›</button>
               <button class="btn-secondary" onclick="goToToday()" style="font-size:11px;padding:5px 10px">오늘</button>
             </div>
+            <!-- 출퇴근 시간 -->
+            <div class="time-row" style="display:flex;align-items:center;gap:16px;margin-top:10px;flex-wrap:wrap">
+              <div style="display:flex;align-items:center;gap:6px">
+                <span style="font-size:12px;color:var(--ink3);font-weight:500">🕘 출근</span>
+                <input class="arrival-time-input" id="arrivalTime" placeholder="--:--">
+              </div>
+              <div style="display:flex;align-items:center;gap:6px">
+                <span style="font-size:12px;color:var(--ink3);font-weight:500">🕕 퇴근</span>
+                <input class="arrival-time-input" id="departureTime" placeholder="--:--">
+              </div>
+            </div>
           </div>
           <div class="entry-actions">
             <span class="sync-status" id="syncStatus"></span>
@@ -377,45 +388,68 @@ body { font-family:'Noto Sans KR',sans-serif; background:var(--paper); color:var
             <textarea class="field-textarea" id="todayWork" placeholder="주요 업무, 회의, 처리한 사건..." rows="4"></textarea>
           </div>
 
-          <div class="field-card full">
-            <div class="field-label">
+          <!-- 재판 메모 (토글 가능) -->
+          <div class="field-card full" id="courtMemoCard">
+            <div class="field-label" style="cursor:pointer;user-select:none" onclick="toggleSection('courtMemo')">
               <span class="field-label-icon">⚖️</span>
               <span class="field-label-text">재판 메모</span>
+              <span id="courtMemoToggleBtn" style="margin-left:auto;font-size:11px;color:var(--ink3);padding:2px 8px;border:1px solid var(--paper3);border-radius:4px;background:var(--paper2)">숨기기</span>
             </div>
-            <div style="margin-bottom:6px">
-              <div class="arrival-row">
-                <span style="font-size:12px;color:var(--ink3)">출근</span>
-                <input class="arrival-time-input" id="arrivalTime" placeholder="--:--">
-                <label class="arrival-check">
-                  <input type="checkbox" id="businessTrip"> 출장/출석
-                </label>
+            <div id="courtMemoBody">
+              <label class="arrival-check" style="margin-bottom:6px;display:inline-flex;align-items:center;gap:6px">
+                <input type="checkbox" id="businessTrip"> <span style="font-size:12px;color:var(--ink3)">출장/출석</span>
+              </label>
+              <textarea class="field-textarea" id="courtMemo" placeholder="법원, 사건번호, 기일결과, 재판장 언급사항..." rows="4"></textarea>
+            </div>
+          </div>
+
+          <!-- 회의 메모 (토글 가능) -->
+          <div class="field-card full" id="meetingMemoCard">
+            <div class="field-label" style="cursor:pointer;user-select:none" onclick="toggleSection('meetingMemo')">
+              <span class="field-label-icon">🤝</span>
+              <span class="field-label-text">회의 메모</span>
+              <span id="meetingMemoToggleBtn" style="margin-left:auto;font-size:11px;color:var(--ink3);padding:2px 8px;border:1px solid var(--paper3);border-radius:4px;background:var(--paper2)">숨기기</span>
+            </div>
+            <div id="meetingMemoBody">
+              <textarea class="field-textarea" id="meetingMemo" placeholder="회의 참석자, 주요 안건, 결정 사항..." rows="4"></textarea>
+              <div style="margin-top:8px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+                <span style="font-size:12px;color:var(--ink3);white-space:nowrap">📎 녹취록 문서:</span>
+                <input type="url" id="meetingDocUrl" placeholder="Google Drive 문서 링크 붙여넣기..." style="flex:1;min-width:200px;padding:6px 10px;border:1px solid var(--paper3);border-radius:6px;font-size:12px;background:var(--paper2);color:var(--ink);outline:none">
+                <button onclick="openMeetingDoc()" style="padding:6px 12px;background:var(--ink);color:var(--paper);border:none;border-radius:6px;font-size:12px;cursor:pointer;white-space:nowrap">열기</button>
               </div>
             </div>
-            <textarea class="field-textarea" id="courtMemo" placeholder="법원, 사건번호, 기일결과, 재판장 언급사항..." rows="4"></textarea>
           </div>
 
-          <div class="field-card">
+          <!-- 서면 (상위 항목) -->
+          <div class="field-card full">
             <div class="field-label">
-              <span class="field-label-icon">📤</span>
-              <span class="field-label-text">제출한 서면</span>
-              <span class="field-label-badge green">완료</span>
+              <span class="field-label-icon">📋</span>
+              <span class="field-label-text">서면</span>
             </div>
-            <textarea class="field-textarea short" id="writtenDocs" placeholder="서면명, 사건번호, 제출일..."></textarea>
-          </div>
-
-          <div class="field-card">
-            <div class="field-label">
-              <span class="field-label-icon">⏰</span>
-              <span class="field-label-text">제출 예정 서면</span>
-              <span class="field-label-badge red">D-day</span>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:4px">
+              <div>
+                <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px">
+                  <span style="font-size:13px">📤</span>
+                  <span style="font-size:13px;font-weight:600;color:var(--ink2)">제출한 서면</span>
+                  <span class="field-label-badge green">완료</span>
+                </div>
+                <textarea class="field-textarea short" id="writtenDocs" placeholder="서면명, 사건번호, 제출일..."></textarea>
+              </div>
+              <div>
+                <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px">
+                  <span style="font-size:13px">⏰</span>
+                  <span style="font-size:13px;font-weight:600;color:var(--ink2)">제출 예정 서면</span>
+                  <span class="field-label-badge red">D-day</span>
+                </div>
+                <textarea class="field-textarea short" id="pendingDocs" placeholder="서면명, 제출기한, 담당 사건..."></textarea>
+              </div>
             </div>
-            <textarea class="field-textarea short" id="pendingDocs" placeholder="서면명, 제출기한, 담당 사건..."></textarea>
           </div>
 
           <div class="field-card full">
             <div class="field-label">
               <span class="field-label-icon">📥</span>
-              <span class="field-label-text">달일 수령 문서</span>
+              <span class="field-label-text">당일 수령 문서</span>
             </div>
             <textarea class="field-textarea short" id="receivedDocs" placeholder="수령한 서면명, 사건번호, 발송인..."></textarea>
           </div>
@@ -740,7 +774,7 @@ function goToToday() {
 // ═══════════════════════════════════════════════════════
 // FORM ↔ DATA
 // ═══════════════════════════════════════════════════════
-const FIELDS = ['todayWork','courtMemo','writtenDocs','pendingDocs','receivedDocs','callNotes','delegated','caseUpdates','learned','etc','arrivalTime'];
+const FIELDS = ['todayWork','courtMemo','writtenDocs','pendingDocs','receivedDocs','callNotes','delegated','caseUpdates','learned','etc','arrivalTime','departureTime','meetingMemo','meetingDocUrl'];
 
 function collectForm() {
   const data = {};
@@ -751,6 +785,11 @@ function collectForm() {
   data.businessTrip = document.getElementById('businessTrip')?.checked || false;
   data.linkedCases  = [...linkedCases];
   data.entryDate    = currentDate;
+  // 토글 visible 상태 저장
+  ['courtMemo','meetingMemo'].forEach(name => {
+    const body = document.getElementById(name + 'Body');
+    data[name + 'Visible'] = body ? body.style.display !== 'none' : true;
+  });
   return data;
 }
 
@@ -766,6 +805,11 @@ function loadEntryToForm(dateKey) {
   linkedCases = e.linkedCases ? [...e.linkedCases] : [];
   renderLinkedCases();
   renderKakaoUpdates();
+  // 토글 섹션: 저장된 visible 상태 복원 (기본: 보임)
+  ['courtMemo','meetingMemo'].forEach(name => {
+    const visible = e[name + 'Visible'] !== false; // 명시적 false일 때만 숨김
+    setSectionVisible(name, visible);
+  });
 }
 
 // ═══════════════════════════════════════════════════════
@@ -928,7 +972,7 @@ function renderStats() {
     <div class="stat-card"><div class="stat-value">${keys.length}</div><div class="stat-label">총 일지 수</div></div>
     <div class="stat-card"><div class="stat-value">${keys.filter(k=>k.startsWith(thisMonth)).length}</div><div class="stat-label">이번 달</div></div>
     <div class="stat-card"><div class="stat-value">${keys.filter(k=>entries[k].courtMemo?.trim()).length}</div><div class="stat-label">재판 기록</div></div>
-    <div class="stat-card"><div class="stat-value">${keys.filter(k=>entries[k].businessTrip&&entries[k].businessTrip!=='없음').length}</div><div class="stat-label">출장/출석</div></div>`;
+    <div class="stat-card"><div class="stat-value">${keys.filter(k=>entries[k].meetingMemo?.trim()).length}</div><div class="stat-label">회의 기록</div></div>`;
   document.getElementById('listCountLabel').textContent = `전체 ${keys.length}건`;
 }
 
@@ -941,12 +985,14 @@ function renderListView() {
     const fields = [
       e.todayWork&&{icon:'☀️',label:'오늘 한 일',val:e.todayWork},
       e.courtMemo&&{icon:'⚖️',label:'재판 메모',val:e.courtMemo},
+      e.meetingMemo&&{icon:'🤝',label:'회의 메모',val:e.meetingMemo},
       e.writtenDocs&&{icon:'📤',label:'제출한 서면',val:e.writtenDocs}
     ].filter(Boolean);
     return `<div class="search-result" onclick="calSelectDate('${k}')">
       <div class="sr-date" style="display:flex;align-items:center;gap:10px">
         ${fmtDate(k)}
         ${e.arrivalTime?`<span style="font-size:11px;color:var(--ink3)">출근 ${e.arrivalTime}</span>`:''}
+        ${e.departureTime?`<span style="font-size:11px;color:var(--ink3)">퇴근 ${e.departureTime}</span>`:''}
         ${e.businessTrip?`<span style="font-size:10.5px;padding:1px 8px;background:rgba(139,32,0,0.1);color:var(--accent);border-radius:20px">${e.businessTrip}</span>`:''}
       </div>
       <div class="sr-content" style="margin-top:7px">
@@ -1292,6 +1338,31 @@ document.addEventListener('click', e => {
 function toggleMobileSidebar() {
   document.getElementById('sidebar').classList.toggle('open');
   document.getElementById('sidebarOverlay').classList.toggle('open');
+}
+
+// ── 섹션 접기/펼치기 ──────────────────────────────────────
+function setSectionVisible(name, visible) {
+  const body = document.getElementById(name + 'Body');
+  const btn  = document.getElementById(name + 'ToggleBtn');
+  if (!body || !btn) return;
+  body.style.display = visible ? '' : 'none';
+  btn.textContent    = visible ? '숨기기' : '보이기';
+  btn.style.background = visible ? 'var(--paper2)' : 'var(--gold)';
+  btn.style.color      = visible ? 'var(--ink3)'   : '#fff';
+}
+
+function toggleSection(name) {
+  const body = document.getElementById(name + 'Body');
+  if (!body) return;
+  const nowVisible = body.style.display !== 'none';
+  setSectionVisible(name, !nowVisible);
+}
+
+// ── 회의 녹취록 문서 열기 ────────────────────────────────
+function openMeetingDoc() {
+  const url = document.getElementById('meetingDocUrl')?.value.trim();
+  if (url) { window.open(url, '_blank'); }
+  else { showToast('📎 Google Drive 문서 링크를 먼저 입력하세요.'); }
 }
 function closeMobileSidebar() {
   document.getElementById('sidebar').classList.remove('open');
