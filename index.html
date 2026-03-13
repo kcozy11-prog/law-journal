@@ -377,6 +377,12 @@ body { font-family:'Noto Sans KR',sans-serif; background:var(--paper); color:var
           <div id="gcalEventsRow"><span class="gcal-empty">일정 없음</span></div>
         </div>
 
+        <!-- Tasks Strip (오늘~7일 할 일) -->
+        <div id="tasksStrip" style="margin-bottom:20px;display:none">
+          <div class="gcal-strip-title" style="margin-top:0">✅ 할 일 (오늘 ~ 7일)</div>
+          <div id="tasksRow" style="display:flex;gap:6px;flex-wrap:wrap;min-height:28px;align-items:flex-start"></div>
+        </div>
+
         <!-- Fields -->
         <div class="fields-grid">
 
@@ -561,6 +567,8 @@ body { font-family:'Noto Sans KR',sans-serif; background:var(--paper); color:var
               <div class="step-title">Google Cloud Console에서 프로젝트 생성 및 API 활성화</div>
               <div class="step-desc">아래 링크에서 새 프로젝트를 만들고, <strong>Google Calendar API</strong>를 검색해 활성화합니다. (이미 프로젝트가 있다면 그대로 사용하셔도 됩니다)</div>
               <a class="step-link" href="https://console.cloud.google.com/apis/library/calendar-json.googleapis.com" target="_blank">🔗 Google Calendar API 활성화 페이지 열기</a>
+              <div class="step-desc" style="margin-top:10px">할 일(Tasks) 연동도 원하시면 <strong>Google Tasks API</strong>도 함께 활성화하세요.</div>
+              <a class="step-link" href="https://console.cloud.google.com/apis/library/tasks.googleapis.com" target="_blank">🔗 Google Tasks API 활성화 페이지 열기</a>
             </div>
           </div>
           <div class="setup-step">
@@ -660,8 +668,9 @@ const CLIENT_KEY     = 'lj_gcal_client';
 const TOKEN_KEY      = 'lj_gcal_token';
 const SHEETS_KEY     = 'lj_sheets_url';
 const KAKAO_KEY      = 'lj_kakao';
-const SCOPE          = 'https://www.googleapis.com/auth/calendar.readonly';
+const SCOPE          = 'https://www.googleapis.com/auth/calendar.readonly https://www.googleapis.com/auth/tasks.readonly';
 const DISCOVERY      = 'https://www.googleapis.com/discovery/v1/apis/calendar/v3/rest';
+const TASKS_DISC     = 'https://www.googleapis.com/discovery/v1/apis/tasks/v1/rest';
 
 let DEFAULT_PW = localStorage.getItem(APP_PW_KEY) || 'lawfirm2024';
 let sheetsUrl  = localStorage.getItem(SHEETS_KEY) || '';
@@ -1204,7 +1213,7 @@ function updateSetupStepNums() {
 function gapiLoaded() {
   gapi.load('client', async () => {
     try {
-      await gapi.client.init({ discoveryDocs: [DISCOVERY] });
+      await gapi.client.init({ discoveryDocs: [DISCOVERY, TASKS_DISC] });
       gapiReady = true;
       const saved = localStorage.getItem(TOKEN_KEY);
       if (saved) {
@@ -1296,7 +1305,81 @@ async function syncGCalEvents() {
 }
 
 async function fetchTasks() {
-  // placeholder — 추후 Tasks API 연동 시 활용
+  if (!accessToken || !gapiReady) return;
+  const strip = document.getElementById('tasksStrip');
+  const row   = document.getElementById('tasksRow');
+  try {
+    // 오늘 00:00 ~ 7일 후 23:59:59 범위
+    const today   = new Date(); today.setHours(0,0,0,0);
+    const weekOut = new Date(today); weekOut.setDate(weekOut.getDate()+7); weekOut.setHours(23,59,59,999);
+
+    // 할일 목록 전체 가져오기
+    const listsRes = await gapi.client.tasks.tasklists.list({ maxResults: 10 });
+    const lists    = listsRes.result.items || [];
+    if (!lists.length) { strip.style.display = 'none'; return; }
+
+    const allTasks = [];
+    for (const list of lists) {
+      try {
+        const tRes = await gapi.client.tasks.tasks.list({
+          tasklist:  list.id,
+          showCompleted: false,
+          showHidden:    false,
+          dueMin: today.toISOString(),
+          dueMax: weekOut.toISOString(),
+          maxResults: 50,
+        });
+        const items = (tRes.result.items || []).filter(t => t.status !== 'completed');
+        items.forEach(t => allTasks.push({ ...t, _listTitle: list.title }));
+      } catch(e) { /* 개별 목록 오류 무시 */ }
+    }
+
+    if (!allTasks.length) {
+      strip.style.display = 'none';
+      return;
+    }
+
+    // due 기준 정렬 (없으면 뒤로)
+    allTasks.sort((a,b) => {
+      if (!a.due && !b.due) return 0;
+      if (!a.due) return 1;
+      if (!b.due) return -1;
+      return a.due.localeCompare(b.due);
+    });
+
+    const todayStr = today.toISOString().slice(0,10);
+    row.innerHTML = allTasks.map(t => {
+      const dueDate  = t.due ? t.due.slice(0,10) : null;
+      const isToday  = dueDate === todayStr;
+      const overdue  = dueDate && dueDate < todayStr;
+      const dueLabel = dueDate
+        ? (isToday ? '오늘' : overdue ? `⚠ ${dueDate.slice(5)}` : dueDate.slice(5))
+        : '기한없음';
+      const dueCls   = overdue ? 'color:#c00;font-weight:700'
+                     : isToday ? 'color:var(--gold);font-weight:700'
+                     : 'color:var(--ink3)';
+      const safeTitle = (t.title||'(제목 없음)').replace(/'/g,"\\'");
+      return `<div class="gcal-chip" title="${t._listTitle} 목록\n클릭하면 오늘 할 일에 추가"
+        onclick="insertTaskToJournal('${safeTitle}','${dueLabel}')"
+        style="align-items:flex-start;flex-direction:column;gap:2px;max-width:220px">
+        <span style="font-size:12px;color:var(--ink);word-break:break-all;white-space:normal;line-height:1.4">${t.title||'(제목 없음)'}</span>
+        <span style="font-size:10px;${dueCls}">${dueLabel} · ${t._listTitle}</span>
+      </div>`;
+    }).join('');
+
+    strip.style.display = 'block';
+  } catch(e) {
+    // Tasks API 미활성화 등 오류 시 조용히 숨김
+    strip.style.display = 'none';
+    console.warn('Tasks fetch error', e);
+  }
+}
+
+function insertTaskToJournal(title, dueLabel) {
+  const field = document.getElementById('todayWork');
+  const line  = `☐ [${dueLabel}] ${title}`;
+  field.value = (field.value ? field.value + '\n' : '') + line;
+  showToast(`✅ 오늘 할 일에 추가: ${title}`);
 }
 
 // ═══════════════════════════════════════════════════════
