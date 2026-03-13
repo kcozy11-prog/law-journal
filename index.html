@@ -1220,17 +1220,44 @@ function gapiLoaded() {
         try {
           const t = JSON.parse(saved);
           if (t.expires_at > Date.now()) {
+            // tasks scope가 없는 구형 토큰이면 재인증 필요 표시
+            const hasTasksScope = (t.scope || '').includes('tasks');
             accessToken = t.access_token;
             gapi.client.setToken({ access_token: accessToken });
-            setGCalStatus('connected', '연결됨 — 동기화 준비');
+            if (hasTasksScope) {
+              setGCalStatus('connected', '연결됨 — 동기화 준비');
+            } else {
+              setGCalStatus('connected', '연결됨 (할 일 권한 갱신 필요)');
+              // 재인증 배너 표시
+              showTasksReauthBanner();
+            }
             document.getElementById('syncBtn').disabled = false;
-            syncGCalEvents(); fetchTasks();
+            syncGCalEvents();
+            if (hasTasksScope) fetchTasks();
           } else { localStorage.removeItem(TOKEN_KEY); }
         } catch {}
       }
       initTokenClient();
     } catch(e) { console.warn('GAPI init error', e); }
   });
+}
+
+function showTasksReauthBanner() {
+  const strip = document.getElementById('tasksStrip');
+  if (!strip) return;
+  strip.style.display = 'block';
+  document.getElementById('tasksRow').innerHTML = `
+    <div style="background:#fffbe8;border:1px solid #e0b800;border-radius:8px;padding:10px 14px;font-size:12.5px;color:#7a5800;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+      <span>⚠️ 할 일(Tasks) 기능을 사용하려면 <strong>권한 재동의</strong>가 필요합니다.</span>
+      <button onclick="reauthorizeWithTasks()" style="padding:5px 13px;background:#1a3a6c;color:white;border:none;border-radius:5px;font-size:12px;cursor:pointer;white-space:nowrap">재연결하기</button>
+    </div>`;
+}
+
+function reauthorizeWithTasks() {
+  if (!tokenClient) { showToast('❌ 클라이언트 ID를 먼저 저장하세요.'); return; }
+  localStorage.removeItem(TOKEN_KEY);  // 구형 토큰 삭제
+  setGCalStatus('loading', '재연결 중...');
+  tokenClient.requestAccessToken({ prompt: 'consent' });  // 동의 화면 재표시
 }
 
 function initTokenClient() {
@@ -1249,7 +1276,9 @@ function handleTokenResponse(resp) {
   if (resp.error) { showToast('❌ 로그인 실패: ' + resp.error); setGCalStatus('', '로그인 실패'); return; }
   accessToken = resp.access_token;
   const expires_at = Date.now() + (resp.expires_in||3600)*1000;
-  localStorage.setItem(TOKEN_KEY, JSON.stringify({ access_token: accessToken, expires_at }));
+  // scope 함께 저장 — 다음 세션에서 재인증 필요 여부 판단에 사용
+  const scope = resp.scope || SCOPE;
+  localStorage.setItem(TOKEN_KEY, JSON.stringify({ access_token: accessToken, expires_at, scope }));
   setGCalStatus('connected', '연결됨 — 동기화 준비');
   document.getElementById('syncBtn').disabled = false;
   updateSetupStepNums();
