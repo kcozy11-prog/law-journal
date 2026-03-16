@@ -8,7 +8,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@300;400;500;600;700&family=JetBrains+Mono:wght@300;400;500&family=Noto+Sans+KR:wght@300;400;500&display=swap" rel="stylesheet">
 
 <!-- Google Identity Services (OAuth 2.0) -->
-<script src="https://accounts.google.com/gsi/client" async defer></script>
+<script src="https://accounts.google.com/gsi/client" async defer onload="gisLoaded()"></script>
 <!-- Google API client -->
 <script src="https://apis.google.com/js/api.js" async defer
   onload="gapiLoaded()" onerror="console.warn('GAPI load failed')"></script>
@@ -573,51 +573,68 @@ function gapiLoaded() {
     try {
       await gapi.client.init({ discoveryDocs: [DISCOVERY] });
       gapiReady = true;
-      // Restore saved token
-      const saved = localStorage.getItem(TOKEN_KEY);
-      if (saved) {
-        try {
-          const t = JSON.parse(saved);
-          if (t.expires_at > Date.now()) {
-            accessToken = t.access_token;
-            gapi.client.setToken({ access_token: accessToken });
-            setGCalStatus('connected', '연결됨 — 동기화 준비');
-            document.getElementById('syncBtn').disabled = false;
-            syncGCalEvents();
-            syncTasks();
-            // 토큰 복원 후 Sheets에서 오늘 일지 불러오기
-            setTimeout(async () => {
-              const data = await loadFromSheets(currentDate);
-              if (data) {
-                fillForm(data);
-                const entries = getEntries();
-                entries[currentDate] = { ...data, _savedAt: new Date().toISOString() };
-                saveEntries(entries);
-                renderRecentList();
-                updateTopbar();
-                showToast('☁️ Sheets에서 오늘 일지 불러옴');
-              }
-            }, 1500);
-          } else {
-            localStorage.removeItem(TOKEN_KEY);
-          }
-        } catch {}
+      console.log('GAPI 초기화 완료');
+      // GIS가 이미 로드됐으면 바로 tokenClient 초기화
+      if (window.google && window.google.accounts) {
+        initTokenClient();
       }
-      initTokenClient();
+      // 저장된 토큰 복원
+      restoreSavedToken();
     } catch(e) { console.warn('GAPI init error', e); }
   });
 }
 
+function gisLoaded() {
+  // GIS 로드 완료 콜백 (필요시)
+  console.log('GIS 로드 완료');
+  if (gapiReady) initTokenClient();
+}
+
 function initTokenClient() {
   const clientId = localStorage.getItem(CLIENT_KEY);
-  if (!clientId || !window.google) return;
+  if (!clientId) return;
+  if (!window.google || !window.google.accounts) return;
   try {
     tokenClient = google.accounts.oauth2.initTokenClient({
       client_id: clientId,
       scope: SCOPE,
       callback: handleTokenResponse,
     });
+    console.log('tokenClient 초기화 완료');
   } catch(e) { console.warn('GIS init error', e); }
+}
+
+async function restoreSavedToken() {
+  const saved = localStorage.getItem(TOKEN_KEY);
+  if (!saved) return;
+  try {
+    const t = JSON.parse(saved);
+    if (t.expires_at > Date.now()) {
+      accessToken = t.access_token;
+      gapi.client.setToken({ access_token: accessToken });
+      setGCalStatus('connected', '연결됨 — 동기화 준비');
+      document.getElementById('syncBtn').disabled = false;
+      updateSetupStepNums();
+      syncGCalEvents();
+      syncTasks();
+      // 1.5초 후 Sheets 불러오기
+      setTimeout(async () => {
+        const data = await loadFromSheets(currentDate);
+        if (data) {
+          fillForm(data);
+          const entries = getEntries();
+          entries[currentDate] = { ...data, _savedAt: new Date().toISOString() };
+          saveEntries(entries);
+          renderRecentList();
+          updateTopbar();
+          showToast('☁️ Sheets에서 오늘 일지 불러옴');
+        }
+      }, 1500);
+    } else {
+      localStorage.removeItem(TOKEN_KEY);
+      console.log('토큰 만료됨');
+    }
+  } catch(e) { console.warn('토큰 복원 실패', e); }
 }
 
 function handleTokenResponse(resp) {
@@ -679,12 +696,18 @@ function saveClientId() {
 function signInGoogle() {
   const clientId = localStorage.getItem(CLIENT_KEY);
   if (!clientId) { showToast('⚠ 먼저 Client ID를 저장하세요'); return; }
-  if (!gapiReady) { showToast('⚠ Google API 로딩 중입니다. 잠시 후 시도하세요.'); return; }
-  if (!tokenClient) { initTokenClient(); }
-  if (!tokenClient) { showToast('⚠ Google 로그인 초기화 실패. 페이지를 새로고침하세요.'); return; }
-
+  if (!gapiReady) { showToast('⚠ Google API 로딩 중입니다. 3초 후 다시 시도하세요.'); return; }
+  if (!window.google || !window.google.accounts) {
+    showToast('⚠ Google 인증 라이브러리 로딩 중입니다. 잠시 후 시도하세요.');
+    return;
+  }
+  // tokenClient 없으면 재초기화
+  if (!tokenClient) {
+    initTokenClient();
+    if (!tokenClient) { showToast('⚠ 로그인 초기화 실패. 페이지를 새로고침(F5) 하세요.'); return; }
+  }
   setGCalStatus('loading', '로그인 중...');
-  tokenClient.requestAccessToken({ prompt: '' });
+  tokenClient.requestAccessToken({ prompt: 'consent' });
 }
 
 function signOutGoogle() {
