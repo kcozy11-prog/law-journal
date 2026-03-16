@@ -325,6 +325,18 @@
         </div>
       </div>
 
+      <!-- Tasks Strip -->
+      <div class="gcal-strip" id="tasksStrip" style="border-color:rgba(52,168,83,0.2);">
+        <div class="gcal-strip-header" style="background:rgba(52,168,83,0.06);border-bottom-color:rgba(52,168,83,0.12);">
+          <span>✅</span>
+          <span class="gcal-strip-title" style="color:var(--green);" id="tasksStripTitle">할일 (오늘~7일)</span>
+          <button class="gcal-strip-refresh" style="border-color:rgba(52,168,83,0.3);color:var(--green);" onclick="syncTasks()">↻ 새로고침</button>
+        </div>
+        <div class="gcal-events-row" id="tasksRow">
+          <span class="gcal-empty">Google 로그인 후 할일이 자동으로 표시됩니다.</span>
+        </div>
+      </div>
+
       <!-- Kakao -->
       <div class="kakao-wrap">
         <div class="kakao-card">
@@ -536,7 +548,7 @@ const DB_KEY      = 'lawJournal_entries';
 const KAKAO_KEY   = 'lawJournal_kakao';
 const CLIENT_KEY  = 'lawJournal_gcalClientId';
 const TOKEN_KEY   = 'lawJournal_gcalToken';
-const SCOPE       = 'https://www.googleapis.com/auth/calendar.readonly https://www.googleapis.com/auth/spreadsheets';
+const SCOPE       = 'https://www.googleapis.com/auth/calendar.readonly https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/tasks.readonly';
 const DISCOVERY   = 'https://www.googleapis.com/discovery/v1/apis/calendar/v3/rest';
 const LBOX_CAL_ID = '5dd32843ebd4cd2e01b418ad5add2f9dade2e80a033bc6d74742580fdc98d022@group.calendar.google.com';
 const SHEET_ID    = '10Ab2Gsf8Wq2TgECmU4m6FNMo5Ywd1Uz2cuVOBJRilQ8';
@@ -572,6 +584,7 @@ function gapiLoaded() {
             setGCalStatus('connected', '연결됨 — 동기화 준비');
             document.getElementById('syncBtn').disabled = false;
             syncGCalEvents();
+            syncTasks();
             // 토큰 복원 후 Sheets에서 오늘 일지 불러오기
             setTimeout(async () => {
               const data = await loadFromSheets(currentDate);
@@ -629,6 +642,7 @@ function handleTokenResponse(resp) {
   document.getElementById('signOutBtn').style.display = '';
   showToast('✅ Google Calendar 연결됨 — Sheets 불러오는 중...');
   syncGCalEvents();
+  syncTasks();
   updateSetupStepNums();
   // 로그인 후 Sheets에서 오늘 일지 불러오기 (1.5초 대기)
   setTimeout(async () => {
@@ -714,16 +728,13 @@ async function syncGCalEvents(dateKey) {
 
   try {
     const dayStart = new Date(target + 'T00:00:00+09:00').toISOString();
-    // 오늘부터 7일
-    const dayEndDate = new Date(target + 'T00:00:00+09:00');
-    dayEndDate.setDate(dayEndDate.getDate() + 7);
-    const dayEnd = dayEndDate.toISOString();
+    const dayEnd   = new Date(target + 'T23:59:59+09:00').toISOString();
 
     // LBOX 캘린더만 조회
     const respLbox = await gapi.client.calendar.events.list({
       calendarId: LBOX_CAL_ID,
       timeMin: dayStart, timeMax: dayEnd,
-      singleEvents: true, orderBy: 'startTime', maxResults: 50,
+      singleEvents: true, orderBy: 'startTime', maxResults: 30,
     });
 
     gcalEvents = (respLbox.result.items || []).map(e => ({...e, _src:'LBOX'}));
@@ -752,7 +763,82 @@ async function syncGCalEvents(dateKey) {
   }
 }
 
-async function testFetch() {
+// ══════════════════════════════════════════
+//  GOOGLE TASKS 연동
+// ══════════════════════════════════════════
+async function syncTasks() {
+  if (!accessToken) return;
+  const row = document.getElementById('tasksRow');
+  row.innerHTML = '<span class="gcal-empty">불러오는 중...</span>';
+
+  try {
+    // 태스크 목록 가져오기
+    const listRes = await fetch('https://tasks.googleapis.com/tasks/v1/users/@me/lists', {
+      headers: { Authorization: `Bearer ${accessToken}` }
+    });
+    if (!listRes.ok) throw new Error('Tasks 목록 ' + listRes.status);
+    const listData = await listRes.json();
+    const taskLists = listData.items || [];
+    if (!taskLists.length) {
+      row.innerHTML = '<span class="gcal-empty">할일 목록이 없습니다.</span>';
+      return;
+    }
+
+    // 오늘~7일 범위
+    const now = new Date();
+    const weekLater = new Date(now);
+    weekLater.setDate(weekLater.getDate() + 7);
+    const dueMax = weekLater.toISOString();
+
+    // 모든 목록에서 미완료 할일 수집
+    let allTasks = [];
+    for (const list of taskLists) {
+      const taskRes = await fetch(
+        `https://tasks.googleapis.com/tasks/v1/lists/${list.id}/tasks?showCompleted=false&maxResults=50`,
+        { headers: { Authorization: `Bearer ${accessToken}` } }
+      );
+      if (!taskRes.ok) continue;
+      const taskData = await taskRes.json();
+      const tasks = (taskData.items || []).filter(t =>
+        t.status !== 'completed' && (!t.due || t.due <= dueMax)
+      ).map(t => ({ ...t, _listTitle: list.title }));
+      allTasks = allTasks.concat(tasks);
+    }
+
+    if (!allTasks.length) {
+      row.innerHTML = '<span class="gcal-empty">7일 내 할일이 없습니다.</span>';
+      return;
+    }
+
+    // 날짜순 정렬
+    allTasks.sort((a, b) => {
+      if (!a.due && !b.due) return 0;
+      if (!a.due) return 1;
+      if (!b.due) return -1;
+      return a.due.localeCompare(b.due);
+    });
+
+    const days = ['일','월','화','수','목','금','토'];
+    row.innerHTML = allTasks.map(t => {
+      const dueStr = t.due
+        ? (() => {
+            const d = new Date(t.due);
+            return `${(d.getMonth()+1)}/${d.getDate()}(${days[d.getDay()]})`;
+          })()
+        : '기한없음';
+      const isOverdue = t.due && new Date(t.due) < now;
+      return `<div class="gcal-chip" style="background:rgba(45,90,39,0.06);border-color:rgba(45,90,39,0.15);color:var(--green);${isOverdue?'border-color:#c00;color:#c00;':''}"
+        title="${t._listTitle}">
+        <span class="gcal-chip-time" style="color:inherit;">${dueStr}</span>
+        <span>${t.title}</span>
+      </div>`;
+    }).join('');
+
+  } catch(e) {
+    console.warn('Tasks 불러오기 실패', e);
+    row.innerHTML = `<span class="gcal-empty">할일 불러오기 실패: ${e.message}</span>`;
+  }
+}
   if (!accessToken) { document.getElementById('testResult').textContent = '⚠ 먼저 로그인하세요.'; return; }
   document.getElementById('testResult').textContent = '불러오는 중...';
   try {
