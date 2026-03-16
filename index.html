@@ -495,6 +495,9 @@
                 <button class="step-btn danger" onclick="signOutGoogle()" id="signOutBtn" style="display:none;">로그아웃</button>
               </div>
               <div id="loginStatus" style="font-size:11.5px;margin-top:8px;color:var(--ink3);"></div>
+              <div style="margin-top:8px;">
+                <button class="step-btn" style="background:#34a853;" onclick="manualSheetsLoad()">☁️ Sheets에서 오늘 일지 수동 불러오기</button>
+              </div>
             </div>
           </div>
 
@@ -570,7 +573,18 @@ function gapiLoaded() {
             document.getElementById('syncBtn').disabled = false;
             syncGCalEvents();
             // 토큰 복원 후 Sheets에서 오늘 일지 불러오기
-            setTimeout(() => loadEntryToForm(currentDate), 500);
+            setTimeout(async () => {
+              const data = await loadFromSheets(currentDate);
+              if (data) {
+                fillForm(data);
+                const entries = getEntries();
+                entries[currentDate] = { ...data, _savedAt: new Date().toISOString() };
+                saveEntries(entries);
+                renderRecentList();
+                updateTopbar();
+                showToast('☁️ Sheets에서 오늘 일지 불러옴');
+              }
+            }, 1500);
           } else {
             localStorage.removeItem(TOKEN_KEY);
           }
@@ -613,11 +627,22 @@ function handleTokenResponse(resp) {
   document.getElementById('loginStatus').textContent = '✅ 로그인 성공! Calendar 접근 권한 획득';
   document.getElementById('signInBtn').style.display = 'none';
   document.getElementById('signOutBtn').style.display = '';
-  showToast('✅ Google Calendar 연결됨');
+  showToast('✅ Google Calendar 연결됨 — Sheets 불러오는 중...');
   syncGCalEvents();
   updateSetupStepNums();
-  // 로그인 후 오늘 일지를 Sheets에서 다시 불러오기
-  loadEntryToForm(currentDate);
+  // 로그인 후 Sheets에서 오늘 일지 불러오기 (1.5초 대기)
+  setTimeout(async () => {
+    const data = await loadFromSheets(currentDate);
+    if (data) {
+      fillForm(data);
+      const entries = getEntries();
+      entries[currentDate] = { ...data, _savedAt: new Date().toISOString() };
+      saveEntries(entries);
+      renderRecentList();
+      updateTopbar();
+      showToast('☁️ Sheets에서 오늘 일지 불러옴');
+    }
+  }, 1500);
 }
 
 // ══════════════════════════════════════════
@@ -997,8 +1022,13 @@ async function loadFromSheets(dateKey) {
   try {
     const data = await sheetsGet(`${SHEET_NAME}!A:O`);
     const rows = data.values || [];
+    // 헤더 제외하고 날짜 매칭 (A열이 '날짜'인 행은 헤더)
     const row = rows.find(r => r[0] === dateKey);
-    if (!row) return null;
+    if (!row) {
+      showToast(`☁️ Sheets에 ${dateKey} 데이터 없음 — 로컬 사용`);
+      return null;
+    }
+    showToast(`☁️ Sheets에서 ${dateKey} 불러옴`);
     return {
       entryDate: row[0]||'', arrivalTime: row[1]||'', leaveTime: row[2]||'',
       businessTrip: row[3]||'없음', tripLocation: row[4]||'',
@@ -1007,12 +1037,33 @@ async function loadFromSheets(dateKey) {
       delegated: row[10]||'', caseUpdates: row[11]||'',
       learned: row[12]||'', etc: row[13]||'',
     };
-  } catch(e) { console.warn('Sheets 불러오기 실패', e); return null; }
+  } catch(e) {
+    console.warn('Sheets 불러오기 실패', e);
+    showToast('⚠️ Sheets 불러오기 실패: ' + (e.message||''));
+    return null;
+  }
 }
 
 function newEntry() {
   loadEntryToForm(todayKey());
   switchView('write');
+}
+
+async function manualSheetsLoad() {
+  if (!accessToken) { showToast('⚠ 먼저 로그인하세요'); return; }
+  showToast('☁️ Sheets에서 불러오는 중...');
+  const data = await loadFromSheets(currentDate);
+  if (data) {
+    fillForm(data);
+    const entries = getEntries();
+    entries[currentDate] = { ...data, _savedAt: new Date().toISOString() };
+    saveEntries(entries);
+    renderRecentList();
+    updateTopbar();
+    switchView('write');
+  } else {
+    showToast('⚠ Sheets에 오늘 데이터 없음');
+  }
 }
 
 // ══════════════════════════════════════════
