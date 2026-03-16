@@ -555,15 +555,27 @@ const SHEET_ID    = '10Ab2Gsf8Wq2TgECmU4m6FNMo5Ywd1Uz2cuVOBJRilQ8';
 const SHEET_NAME  = 'Sheet1';
 
 // ══════════════════════════════════════════
+//  DATA LAYER (먼저 정의)
+// ══════════════════════════════════════════
+function getEntries() { try { return JSON.parse(localStorage.getItem(DB_KEY)) || {}; } catch { return {}; } }
+function saveEntries(e) { localStorage.setItem(DB_KEY, JSON.stringify(e)); }
+function todayKey() { return new Date().toISOString().slice(0,10); }
+function fmtDate(k) {
+  const d = new Date(k+'T00:00:00');
+  const days = ['일','월','화','수','목','금','토'];
+  return `${d.getFullYear()}년 ${d.getMonth()+1}월 ${d.getDate()}일 (${days[d.getDay()]})`;
+}
+
+// ══════════════════════════════════════════
 //  STATE
 // ══════════════════════════════════════════
 let currentView  = 'write';
 let currentDate  = todayKey();
 let calYear, calMonth;
-let gapiReady    = false;   // gapi.client loaded
-let tokenClient  = null;    // GIS token client
-let accessToken  = null;    // current OAuth token
-let gcalEvents   = [];      // today's events cache
+let gapiReady    = false;
+let tokenClient  = null;
+let accessToken  = null;
+let gcalEvents   = [];
 
 // ══════════════════════════════════════════
 //  GAPI BOOTSTRAP
@@ -987,16 +999,8 @@ function updateSetupStepNums() {
 }
 
 // ══════════════════════════════════════════
-//  DATA LAYER
+//  FORM FIELDS
 // ══════════════════════════════════════════
-function getEntries() { try { return JSON.parse(localStorage.getItem(DB_KEY)) || {}; } catch { return {}; } }
-function saveEntries(e) { localStorage.setItem(DB_KEY, JSON.stringify(e)); }
-function todayKey() { return new Date().toISOString().slice(0,10); }
-function fmtDate(k) {
-  const d = new Date(k+'T00:00:00');
-  const days = ['일','월','화','수','목','금','토'];
-  return `${d.getFullYear()}년 ${d.getMonth()+1}월 ${d.getDate()}일 (${days[d.getDay()]})`;
-}
 
 const FIELDS = ['entryDate','arrivalTime','leaveTime','businessTrip','tripLocation',
   'todayWork','courtMemo','callNotes','writtenDocs','pendingDocs','delegated','caseUpdates','learned','etc'];
