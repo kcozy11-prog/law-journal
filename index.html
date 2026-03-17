@@ -193,6 +193,7 @@
   .field-textarea { min-height:90px; }
   .field-textarea.tall { min-height:130px; }
   .field-textarea.short { min-height:68px; }
+  .field-textarea::placeholder { color:#c4b8a8; font-size:12px; line-height:1.8; opacity:1; }
 
   .meta-row { display:flex; gap:12px; max-width:1100px; margin-bottom:14px; flex-wrap:wrap; }
   .meta-card { background:white; border:1px solid var(--paper3); border-radius:10px; display:flex; align-items:center; padding:0 14px; gap:9px; height:50px; }
@@ -200,21 +201,6 @@
   .meta-card input[type="time"], .meta-card input[type="date"] { border:none; background:none; font-family:'JetBrains Mono',monospace; font-size:13px; color:var(--ink); outline:none; cursor:pointer; }
   .meta-card select { border:none; background:none; font-family:'Noto Sans KR',sans-serif; font-size:13px; color:var(--ink); outline:none; cursor:pointer; }
   .divider { width:1px; height:18px; background:var(--paper3); }
-
-  /* Kakao */
-  .kakao-wrap { max-width:1100px; margin-bottom:14px; }
-  .kakao-card { background:white; border:1px solid var(--paper3); border-radius:10px; overflow:hidden; }
-  .kakao-header { display:flex; align-items:center; padding:10px 16px; background:#fee500; gap:8px; }
-  .kakao-header-title { font-size:12.5px; font-weight:600; color:#3c1e1e; }
-  .kakao-header-sub { margin-left:auto; font-size:11px; color:rgba(60,30,30,0.6); }
-  .kakao-textarea { width:100%; min-height:72px; border:none; resize:none; font-family:'Noto Sans KR',sans-serif; font-size:12.5px; color:var(--ink); outline:none; line-height:1.7; padding:12px 16px; }
-  .kakao-import-btn { display:block; width:calc(100% - 28px); margin:0 14px 10px; padding:8px; background:#3c1e1e; color:#fee500; border:none; border-radius:6px; font-size:12px; font-family:'Noto Sans KR',sans-serif; cursor:pointer; transition:opacity 0.15s; }
-  .kakao-import-btn:hover { opacity:0.85; }
-  .kakao-updates-list { padding:0 16px 10px; }
-  .kakao-update-item { display:flex; gap:10px; padding:7px 0; border-bottom:1px solid var(--paper3); font-size:12.5px; align-items:flex-start; }
-  .kakao-update-item:last-child { border-bottom:none; }
-  .kakao-update-time { font-family:'JetBrains Mono',monospace; font-size:10.5px; color:var(--ink3); min-width:44px; margin-top:2px; }
-  .kakao-update-text { color:var(--ink2); line-height:1.6; flex:1; }
 
   /* Search / List */
   .section-title { font-family:'Noto Serif KR',serif; font-size:19px; font-weight:600; color:var(--ink); margin-bottom:18px; letter-spacing:-0.02em; }
@@ -337,20 +323,6 @@
         </div>
       </div>
 
-      <!-- Kakao -->
-      <div class="kakao-wrap">
-        <div class="kakao-card">
-          <div class="kakao-header">
-            <span style="font-size:16px;">💬</span>
-            <span class="kakao-header-title">카카오톡 직원 업무 보고</span>
-            <span class="kakao-header-sub">복사 붙여넣기 → 자동 파싱</span>
-          </div>
-          <textarea class="kakao-textarea" id="kakaoPaste" placeholder="카카오톡 대화 내용을 여기에 붙여넣으세요&#10;예) [홍길동] [오전 10:30] 사건번호 2024가합1234 서류 접수 완료했습니다."></textarea>
-          <button class="kakao-import-btn" onclick="parseKakao()">📥 파싱하여 사건 업데이트에 반영</button>
-          <div class="kakao-updates-list" id="kakaoUpdatesList"></div>
-        </div>
-      </div>
-
       <!-- Meta row -->
       <div class="meta-row">
         <div class="meta-card">
@@ -385,39 +357,39 @@
       <div class="journal-grid">
         <div class="field-card full">
           <div class="field-label"><span class="field-label-icon">📝</span><span class="field-label-text">오늘 한 일</span></div>
-          <textarea class="field-textarea tall" id="todayWork" placeholder="오늘 처리한 업무를 자유롭게 기록하세요."></textarea>
+          <textarea class="field-textarea tall" id="todayWork" placeholder="[사건별 진행]&#10;- 2024가합1234 / 준비서면 초안 작성&#10;[서면 작성·검토]&#10;- ○○ 답변서 검토 완료&#10;[회의·상담]&#10;- 14:00 의뢰인 미팅 (○○ 건)&#10;[행정 업무]&#10;- 사건 수임계약서 정리"></textarea>
         </div>
         <div class="field-card">
           <div class="field-label"><span class="field-label-icon">⚖️</span><span class="field-label-text">재판 메모</span><span class="field-label-badge blue">법원</span></div>
-          <textarea class="field-textarea" id="courtMemo" placeholder="기일 결과, 판사 언급 사항, 주요 쟁점..."></textarea>
+          <textarea class="field-textarea" id="courtMemo" placeholder="[사건번호] 2024가합1234 / ○○지방법원 제○부&#10;[기일 유형] 변론기일 / 조정기일 / 선고&#10;[판사 지시] &#10;[상대방 주장] &#10;[다음 기일] 2024-00-00 00:00"></textarea>
         </div>
         <div class="field-card">
           <div class="field-label"><span class="field-label-icon">📞</span><span class="field-label-text">통화 내용</span></div>
-          <textarea class="field-textarea" id="callNotes" placeholder="통화 상대방, 통화 시각, 주요 내용..."></textarea>
+          <textarea class="field-textarea" id="callNotes" placeholder="[통화 상대방] 의뢰인 ○○○ / 상대측 대리인&#10;[시각] 10:30&#10;[내용 요약] &#10;[후속 조치] "></textarea>
         </div>
         <div class="field-card">
           <div class="field-label"><span class="field-label-icon">📄</span><span class="field-label-text">제출한 서면</span><span class="field-label-badge green">완료</span></div>
-          <textarea class="field-textarea short" id="writtenDocs" placeholder="서면명, 사건번호, 제출일..."></textarea>
+          <textarea class="field-textarea short" id="writtenDocs" placeholder="[서면 종류] 준비서면 / 답변서 / 항소이유서&#10;[사건번호] 2024가합1234&#10;[제출처] ○○법원 / 전자소송&#10;[접수 확인] 완료 / 미확인"></textarea>
         </div>
         <div class="field-card">
           <div class="field-label"><span class="field-label-icon">📮</span><span class="field-label-text">제출 예정 서면</span><span class="field-label-badge red">D-day</span></div>
-          <textarea class="field-textarea short" id="pendingDocs" placeholder="서면명, 제출기한, 담당 사건..."></textarea>
+          <textarea class="field-textarea short" id="pendingDocs" placeholder="[서면명] 준비서면 / 의견서&#10;[제출 기한] 2024-00-00&#10;[진행도] 초안 작성 중 / 검토 대기&#10;[담당자] 본인 / ○○ 변호사"></textarea>
         </div>
         <div class="field-card">
           <div class="field-label"><span class="field-label-icon">👥</span><span class="field-label-text">직원에게 위임한 일</span></div>
-          <textarea class="field-textarea short" id="delegated" placeholder="담당 직원, 업무 내용, 기한..."></textarea>
+          <textarea class="field-textarea short" id="delegated" placeholder="[직원명] ○○○&#10;[업무 내용] 소장 부본 송달 확인&#10;[기한] 2024-00-00&#10;[진행 상태] 진행 중 / 완료"></textarea>
         </div>
         <div class="field-card">
           <div class="field-label"><span class="field-label-icon">💬</span><span class="field-label-text">사건 업데이트 (직원 보고)</span></div>
-          <textarea class="field-textarea short" id="caseUpdates" placeholder="직원 보고 내용, 사건 진행상황..."></textarea>
+          <textarea class="field-textarea short" id="caseUpdates" placeholder="[직원 보고] ○○○: 소장 접수 완료&#10;[사건별 진행] 2024가합1234 - 상대방 답변서 수령&#10;[송달·접수] ○○ 결정문 송달&#10;[기일 변경] 2024-00-00 → 2024-00-00"></textarea>
         </div>
         <div class="field-card full">
           <div class="field-label"><span class="field-label-icon">💡</span><span class="field-label-text">오늘 업무에서 배운 점</span></div>
-          <textarea class="field-textarea" id="learned" placeholder="법리 해석, 실무 팁, 판례 정리..."></textarea>
+          <textarea class="field-textarea" id="learned" placeholder="[법리·판례] 대법원 2024다12345 — ○○ 관련 판시&#10;[실무 팁] 전자소송 ○○ 기능 활용법&#10;[절차적 교훈] ○○ 시 유의사항"></textarea>
         </div>
         <div class="field-card full">
           <div class="field-label"><span class="field-label-icon">📌</span><span class="field-label-text">기타 / 내일 할 일</span></div>
-          <textarea class="field-textarea" id="etc" placeholder="기타 도움될 내용, 내일 우선순위..."></textarea>
+          <textarea class="field-textarea" id="etc" placeholder="[내일 우선순위]&#10;1. ○○ 준비서면 제출 (D-1)&#10;2. ○○ 의뢰인 상담&#10;[기한 임박 사건] 2024가합1234 — 00일 제출기한&#10;[주간 점검] 이번 주 마감 서면 현황"></textarea>
         </div>
       </div>
     </div>
@@ -545,7 +517,6 @@
 //  CONFIG & CONSTANTS
 // ══════════════════════════════════════════
 const DB_KEY      = 'lawJournal_entries';
-const KAKAO_KEY   = 'lawJournal_kakao';
 const CLIENT_KEY  = 'lawJournal_gcalClientId';
 const TOKEN_KEY   = 'lawJournal_gcalToken';
 const SCOPE       = 'https://www.googleapis.com/auth/calendar.readonly https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/tasks.readonly';
@@ -555,15 +526,94 @@ const SHEET_ID    = '10Ab2Gsf8Wq2TgECmU4m6FNMo5Ywd1Uz2cuVOBJRilQ8';
 const SHEET_NAME  = 'Sheet1';
 
 // ══════════════════════════════════════════
+//  UTILITIES
+// ══════════════════════════════════════════
+function escapeHtml(str) {
+  const map = { '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' };
+  return String(str).replace(/[&<>"']/g, c => map[c]);
+}
+
+// ══════════════════════════════════════════
 //  DATA LAYER (먼저 정의)
 // ══════════════════════════════════════════
-function getEntries() { try { return JSON.parse(localStorage.getItem(DB_KEY)) || {}; } catch { return {}; } }
-function saveEntries(e) { localStorage.setItem(DB_KEY, JSON.stringify(e)); }
-function todayKey() { return new Date().toISOString().slice(0,10); }
+function getLocalEntries() { try { return JSON.parse(localStorage.getItem(DB_KEY)) || {}; } catch { return {}; } }
+function saveLocalEntries(e) { localStorage.setItem(DB_KEY, JSON.stringify(e)); }
+// Backwards-compat aliases used throughout
+const getEntries = getLocalEntries;
+const saveEntries = saveLocalEntries;
+
+function todayKey() { return new Date().toLocaleDateString('sv-SE', { timeZone: 'Asia/Seoul' }); }
 function fmtDate(k) {
   const d = new Date(k+'T00:00:00');
   const days = ['일','월','화','수','목','금','토'];
   return `${d.getFullYear()}년 ${d.getMonth()+1}월 ${d.getDate()}일 (${days[d.getDay()]})`;
+}
+
+// Sheets-first data access
+async function loadEntry(dateKey) {
+  // Try Sheets first, fall back to localStorage
+  if (accessToken) {
+    try {
+      const sheetsData = await loadFromSheets(dateKey);
+      if (sheetsData) {
+        // Sync to localStorage
+        const entries = getLocalEntries();
+        entries[dateKey] = { ...sheetsData, _savedAt: new Date().toISOString() };
+        saveLocalEntries(entries);
+        return sheetsData;
+      }
+    } catch(e) { console.warn('Sheets load failed, using local', e); }
+  }
+  const entries = getLocalEntries();
+  return entries[dateKey] || null;
+}
+
+async function saveEntryData(data, dateKey) {
+  // Immediate localStorage save
+  const entries = getLocalEntries();
+  entries[dateKey] = { ...data, _savedAt: new Date().toISOString() };
+  saveLocalEntries(entries);
+  renderRecentList(); renderCalendarMini();
+  // Async Sheets save
+  if (accessToken) {
+    try { await saveToSheets(data, dateKey); }
+    catch(e) { console.warn('Sheets save failed', e); showToast('⚠️ Sheets 저장 실패 — 로컬에는 저장됨'); }
+  }
+}
+
+// Bulk sync: pull all Sheets data into localStorage on login
+async function bulkSyncFromSheets() {
+  if (!accessToken) return;
+  try {
+    const data = await sheetsGet(`${SHEET_NAME}!A:O`);
+    const rows = data.values || [];
+    if (rows.length <= 1) return; // only header or empty
+    const entries = getLocalEntries();
+    let synced = 0;
+    for (let i = 1; i < rows.length; i++) {
+      const row = rows[i];
+      const dateKey = row[0];
+      if (!dateKey || dateKey === '날짜') continue;
+      const sheetsEntry = {
+        entryDate: row[0]||'', arrivalTime: row[1]||'', leaveTime: row[2]||'',
+        businessTrip: row[3]||'없음', tripLocation: row[4]||'',
+        todayWork: row[5]||'', courtMemo: row[6]||'', callNotes: row[7]||'',
+        writtenDocs: row[8]||'', pendingDocs: row[9]||'',
+        delegated: row[10]||'', caseUpdates: row[11]||'',
+        learned: row[12]||'', etc: row[13]||'',
+        _savedAt: row[14] || new Date().toISOString()
+      };
+      // Sheets wins: overwrite local with Sheets data
+      entries[dateKey] = sheetsEntry;
+      synced++;
+    }
+    saveLocalEntries(entries);
+    renderRecentList(); renderCalendarMini(); renderStats();
+    console.log(`bulkSync: ${synced}건 동기화`);
+    showToast(`☁️ Sheets에서 ${synced}건 동기화 완료`);
+  } catch(e) {
+    console.warn('bulkSync 실패', e);
+  }
 }
 
 // ══════════════════════════════════════════
@@ -616,6 +666,17 @@ function initTokenClient() {
   } catch(e) { console.warn('GIS init error', e); }
 }
 
+async function initialSheetsSync() {
+  // Bulk sync all data, then load current entry
+  await bulkSyncFromSheets();
+  const data = await loadEntry(currentDate);
+  if (data) {
+    fillForm(data);
+    updateTopbar();
+    showToast('☁️ Sheets에서 일지 동기화 완료');
+  }
+}
+
 async function restoreSavedToken() {
   const saved = localStorage.getItem(TOKEN_KEY);
   if (!saved) return;
@@ -629,19 +690,7 @@ async function restoreSavedToken() {
       updateSetupStepNums();
       syncGCalEvents();
       syncTasks();
-      // 1.5초 후 Sheets 불러오기
-      setTimeout(async () => {
-        const data = await loadFromSheets(currentDate);
-        if (data) {
-          fillForm(data);
-          const entries = getEntries();
-          entries[currentDate] = { ...data, _savedAt: new Date().toISOString() };
-          saveEntries(entries);
-          renderRecentList();
-          updateTopbar();
-          showToast('☁️ Sheets에서 오늘 일지 불러옴');
-        }
-      }, 1500);
+      setTimeout(initialSheetsSync, 1500);
     } else {
       localStorage.removeItem(TOKEN_KEY);
       console.log('토큰 만료됨');
@@ -669,23 +718,11 @@ function handleTokenResponse(resp) {
   document.getElementById('loginStatus').textContent = '✅ 로그인 성공! Calendar 접근 권한 획득';
   document.getElementById('signInBtn').style.display = 'none';
   document.getElementById('signOutBtn').style.display = '';
-  showToast('✅ Google Calendar 연결됨 — Sheets 불러오는 중...');
+  showToast('✅ Google Calendar 연결됨 — Sheets 동기화 중...');
   syncGCalEvents();
   syncTasks();
   updateSetupStepNums();
-  // 로그인 후 Sheets에서 오늘 일지 불러오기 (1.5초 대기)
-  setTimeout(async () => {
-    const data = await loadFromSheets(currentDate);
-    if (data) {
-      fillForm(data);
-      const entries = getEntries();
-      entries[currentDate] = { ...data, _savedAt: new Date().toISOString() };
-      saveEntries(entries);
-      renderRecentList();
-      updateTopbar();
-      showToast('☁️ Sheets에서 오늘 일지 불러옴');
-    }
-  }, 1500);
+  setTimeout(initialSheetsSync, 1500);
 }
 
 // ══════════════════════════════════════════
@@ -863,9 +900,9 @@ async function syncTasks() {
         : '기한없음';
       const isOverdue = t.due && new Date(t.due) < now;
       return `<div class="gcal-chip" style="background:rgba(45,90,39,0.06);border-color:rgba(45,90,39,0.15);color:var(--green);${isOverdue?'border-color:#c00;color:#c00;':''}"
-        title="${t._listTitle}">
+        title="${escapeHtml(t._listTitle)}">
         <span class="gcal-chip-time" style="color:inherit;">${dueStr}</span>
-        <span>${t.title}</span>
+        <span>${escapeHtml(t.title)}</span>
       </div>`;
     }).join('');
 
@@ -874,6 +911,8 @@ async function syncTasks() {
     row.innerHTML = `<span class="gcal-empty">할일 불러오기 실패: ${e.message}</span>`;
   }
 }
+
+async function testFetch() {
   if (!accessToken) { document.getElementById('testResult').textContent = '⚠ 먼저 로그인하세요.'; return; }
   document.getElementById('testResult').textContent = '불러오는 중...';
   try {
@@ -942,10 +981,11 @@ function renderGCalStrip(events, dateKey) {
         ? `<span style="font-size:9.5px;padding:1px 5px;background:#c00;color:white;border-radius:3px;margin-right:2px;">LBOX</span>`
         : '';
       return `<div class="gcal-chip${isAllDay?' gcal-chip-allday':''}"
-        onclick="insertEventToJournal('${ev.summary.replace(/'/g,"\\'")}','${timeStr}')"
+        data-summary="${escapeHtml(ev.summary)}" data-time="${escapeHtml(timeStr)}"
+        onclick="insertEventToJournal(this.dataset.summary, this.dataset.time)"
         title="클릭하면 재판메모에 추가">
-        <span class="gcal-chip-time">${timeStr}</span>
-        ${badge}<span>${ev.summary}</span>
+        <span class="gcal-chip-time">${escapeHtml(timeStr)}</span>
+        ${badge}<span>${escapeHtml(ev.summary)}</span>
       </div>`;
     }).join('');
     return `<div style="width:100%;padding:4px 0 2px;">
@@ -1016,42 +1056,27 @@ function fillForm(data) {
 
 async function loadEntryToForm(dateKey) {
   currentDate = dateKey;
-  // Sheets에서 먼저 시도
-  const sheetsData = await loadFromSheets(dateKey);
-  if (sheetsData) {
-    fillForm(sheetsData);
-    // 로컬에도 동기화
-    const entries = getEntries();
-    entries[dateKey] = { ...sheetsData, _savedAt: new Date().toISOString() };
-    saveEntries(entries);
+  const data = await loadEntry(dateKey);
+  if (data) {
+    fillForm(data);
   } else {
-    const entries = getEntries();
-    if (entries[dateKey]) {
-      fillForm(entries[dateKey]);
-    } else {
-      FIELDS.forEach(id => {
-        if (id==='entryDate') { document.getElementById(id).value=dateKey; return; }
-        if (id==='arrivalTime') { document.getElementById(id).value='09:00'; return; }
-        const el=document.getElementById(id); if(el) el.value='';
-      });
-      document.getElementById('businessTrip').value='없음';
-    }
+    // New empty entry defaults
+    FIELDS.forEach(id => {
+      if (id==='entryDate') { document.getElementById(id).value=dateKey; return; }
+      if (id==='arrivalTime') { document.getElementById(id).value='09:00'; return; }
+      const el=document.getElementById(id); if(el) el.value='';
+    });
+    document.getElementById('businessTrip').value='없음';
   }
   updateTopbar();
-  renderKakaoUpdates();
   if (accessToken) syncGCalEvents(dateKey);
 }
 
-function saveEntry() {
+async function saveEntry() {
   const data = collectForm();
   const dateKey = data.entryDate || todayKey();
-  const entries = getEntries();
-  entries[dateKey] = { ...data, _savedAt: new Date().toISOString() };
-  saveEntries(entries);
-  renderRecentList(); renderCalendarMini();
+  await saveEntryData(data, dateKey);
   showToast('✅ 저장됨 — ' + dateKey);
-  // Google Sheets에도 저장
-  if (accessToken) saveToSheets(data, dateKey);
 }
 
 // ══════════════════════════════════════════
@@ -1269,7 +1294,7 @@ function renderRecentList() {
     const e=entries[k]; const preview=(e.todayWork||e.courtMemo||'').slice(0,26);
     return `<div class="entry-item${k===currentDate?' active':''}" onclick="calSelectDate('${k}')">
       <div class="entry-date-label">${k}</div>
-      ${preview?`<div class="entry-preview">${preview}…</div>`:''}
+      ${preview?`<div class="entry-preview">${escapeHtml(preview)}…</div>`:''}
     </div>`;
   }).join('');
 }
@@ -1292,7 +1317,7 @@ function fullSearch(q) {
   const hits=Object.entries(entries).filter(([,e])=>JSON.stringify(e).toLowerCase().includes(lq)).sort(([a],[b])=>b.localeCompare(a));
   countEl.textContent=`${hits.length}건`;
   if(!hits.length){results.innerHTML='<div class="empty-state"><div class="es-icon">🗂</div><p>검색 결과 없음</p></div>';return;}
-  const hl=s=>(s||'').replace(new RegExp(q.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'),'gi'),m=>`<mark>${m}</mark>`);
+  const hl=s=>{const escaped=escapeHtml(s||'');return escaped.replace(new RegExp(escapeHtml(q).replace(/[.*+?^${}()|[\]\\]/g,'\\$&'),'gi'),m=>`<mark>${m}</mark>`);};
   const fLabels={todayWork:'오늘 한 일',courtMemo:'재판 메모',callNotes:'통화',writtenDocs:'제출한 서면',pendingDocs:'제출 예정',delegated:'위임',caseUpdates:'사건 업데이트',learned:'배운 점',etc:'기타'};
   results.innerHTML=hits.map(([k,e])=>{
     const tags=Object.entries(fLabels).filter(([f])=>(e[f]||'').toLowerCase().includes(lq)).map(([,l])=>`<span class="sr-field-tag">${l}</span>`).join('');
@@ -1336,47 +1361,10 @@ function renderListView() {
         ${e.businessTrip&&e.businessTrip!=='없음'?`<span style="font-size:10.5px;padding:1px 8px;background:rgba(139,32,0,0.1);color:var(--accent);border-radius:20px;">${e.businessTrip}</span>`:''}
       </div>
       <div class="sr-content" style="margin-top:7px;">
-        ${fields.map(f=>`<div style="margin-bottom:4px;"><strong style="font-size:11px;color:var(--ink3)">${f.icon} ${f.label}</strong> — ${f.val.slice(0,80)}${f.val.length>80?'…':''}</div>`).join('')}
+        ${fields.map(f=>`<div style="margin-bottom:4px;"><strong style="font-size:11px;color:var(--ink3)">${f.icon} ${f.label}</strong> — ${escapeHtml(f.val.slice(0,80))}${f.val.length>80?'…':''}</div>`).join('')}
       </div>
     </div>`;
   }).join('')+`</div>`;
-}
-
-// ══════════════════════════════════════════
-//  KAKAO PARSING
-// ══════════════════════════════════════════
-function parseKakao() {
-  const raw=document.getElementById('kakaoPaste').value.trim();
-  if(!raw){showToast('⚠ 붙여넣을 내용이 없습니다');return;}
-  const lines=raw.split('\n'); const updates=[];
-  lines.forEach(line=>{
-    const m=line.match(/^\[(.+?)\]\s*\[(오전|오후)\s*(\d{1,2}):(\d{2})\]\s*(.+)$/);
-    if(m){
-      const[,name,ampm,hStr,mStr,content]=m;
-      let h=parseInt(hStr);
-      if(ampm==='오후'&&h<12)h+=12; if(ampm==='오전'&&h===12)h=0;
-      updates.push({name,time:`${String(h).padStart(2,'0')}:${mStr}`,content:content.trim()});
-    }
-  });
-  if(!updates.length) lines.filter(l=>l.trim()).forEach(l=>updates.push({name:'',time:'',content:l.trim()}));
-  const stored=JSON.parse(localStorage.getItem(KAKAO_KEY)||'{}');
-  stored[currentDate]=(stored[currentDate]||[]).concat(updates);
-  localStorage.setItem(KAKAO_KEY,JSON.stringify(stored));
-  const el=document.getElementById('caseUpdates');
-  el.value=(el.value?el.value+'\n':'')+updates.map(u=>`[${u.time||'--:--'}] ${u.name?u.name+': ':''}${u.content}`).join('\n');
-  document.getElementById('kakaoPaste').value='';
-  renderKakaoUpdates(); showToast(`💬 ${updates.length}건 반영`);
-}
-
-function renderKakaoUpdates() {
-  const stored=JSON.parse(localStorage.getItem(KAKAO_KEY)||'{}');
-  const updates=stored[currentDate]||[];
-  const el=document.getElementById('kakaoUpdatesList');
-  if(!updates.length){el.innerHTML='';return;}
-  el.innerHTML=updates.slice(-8).map(u=>`<div class="kakao-update-item">
-    <span class="kakao-update-time">${u.time||'--:--'}</span>
-    <span class="kakao-update-text">${u.name?`<strong>${u.name}</strong> `:''}${u.content}</span>
-  </div>`).join('');
 }
 
 // ══════════════════════════════════════════
@@ -1388,12 +1376,28 @@ function showToast(msg) {
   clearTimeout(toastTimer); toastTimer=setTimeout(()=>el.classList.remove('show'),2400);
 }
 
+let _lastAutoSaveJson = '';
+let _lastSheetsSyncTime = 0;
+const SHEETS_SYNC_INTERVAL = 5 * 60 * 1000; // 5분
+
 setInterval(()=>{
   const data=collectForm();
+  const json = JSON.stringify(data);
+  // Dirty check: skip if nothing changed
+  if (json === _lastAutoSaveJson) return;
   if(Object.values(data).some(v=>v&&v.trim&&v.trim())){
-    const dateKey=data.entryDate||todayKey(); const entries=getEntries();
-    entries[dateKey]={...data,_savedAt:new Date().toISOString()}; saveEntries(entries);
+    _lastAutoSaveJson = json;
+    const dateKey=data.entryDate||todayKey();
+    const entries=getLocalEntries();
+    entries[dateKey]={...data,_savedAt:new Date().toISOString()};
+    saveLocalEntries(entries);
     renderRecentList();
+    // Sheets 동기화: 5분 간격 제한
+    const now = Date.now();
+    if (accessToken && (now - _lastSheetsSyncTime) >= SHEETS_SYNC_INTERVAL) {
+      _lastSheetsSyncTime = now;
+      saveToSheets(data, dateKey).catch(e => console.warn('autosave Sheets fail', e));
+    }
   }
 },60000);
 
