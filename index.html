@@ -179,6 +179,14 @@
   .gcal-chip-time { font-family:'JetBrains Mono',monospace; font-size:10.5px; opacity:0.7; }
   .gcal-chip-allday { background:rgba(52,168,83,0.08); border-color:rgba(52,168,83,0.2); color:var(--green); }
   .gcal-empty { padding:12px 16px; font-size:12px; color:var(--ink3); }
+  .trip-chip { padding:4px 10px; border:1px solid var(--paper3); border-radius:14px; background:white; font-family:'Noto Sans KR',sans-serif; font-size:11.5px; color:var(--ink3); cursor:pointer; transition:all 0.12s; }
+  .trip-chip:hover { border-color:var(--gold); color:var(--ink2); }
+  .trip-chip.active { background:var(--ink); color:var(--paper2); border-color:var(--ink); }
+  .trip-chip.active[data-val="법원"] { background:var(--blue); border-color:var(--blue); color:white; }
+  .trip-chip.active[data-val="회의"] { background:var(--green); border-color:var(--green); color:white; }
+  .trip-chip.active[data-val="출장"] { background:var(--accent); border-color:var(--accent); color:white; }
+  .trip-chip.active[data-val="재택"] { background:var(--gold); border-color:var(--gold); color:white; }
+
   .deleg-item { display:flex; align-items:center; gap:8px; padding:5px 0; border-bottom:1px solid var(--paper3); font-size:12.5px; }
   .deleg-item:last-child { border-bottom:none; }
   .deleg-item input[type="checkbox"] { width:15px; height:15px; cursor:pointer; accent-color:var(--green); flex-shrink:0; }
@@ -368,15 +376,15 @@
           <label>퇴근</label><div class="divider"></div>
           <input type="time" id="leaveTime">
         </div>
-        <div class="meta-card">
-          <label>출장</label><div class="divider"></div>
-          <select id="businessTrip" onchange="updateCourtMemoVisibility()">
-            <option value="없음">없음</option>
-            <option value="출장">출장</option>
-            <option value="재택">재택</option>
-            <option value="법원">법원 출석</option>
-            <option value="회의">회의</option>
-          </select>
+        <div class="meta-card" style="gap:6px;">
+          <label>유형</label><div class="divider"></div>
+          <div id="tripChips" style="display:flex;gap:5px;flex-wrap:wrap;">
+            <button type="button" class="trip-chip" data-val="출장" onclick="toggleTripChip(this)">출장</button>
+            <button type="button" class="trip-chip" data-val="재택" onclick="toggleTripChip(this)">재택</button>
+            <button type="button" class="trip-chip" data-val="법원" onclick="toggleTripChip(this)">법원</button>
+            <button type="button" class="trip-chip" data-val="회의" onclick="toggleTripChip(this)">회의</button>
+          </div>
+          <input type="hidden" id="businessTrip" value="없음">
         </div>
         <div class="meta-card" style="flex:1;">
           <label>장소</label><div class="divider"></div>
@@ -933,10 +941,33 @@ function collectForm() {
 }
 function fillForm(data) {
   FIELDS.forEach(id => { const el=document.getElementById(id); if(el && data[id]!==undefined) el.value=data[id]; });
+  // 칩 UI 동기화
+  syncTripChips();
   // 위임 체크리스트 렌더링
   renderDelegatedList();
   // 재판/회의 메모 표시 여부
   updateCourtMemoVisibility();
+}
+
+// ── 유형 토글 칩 ──
+function toggleTripChip(btn) {
+  btn.classList.toggle('active');
+  syncTripValue();
+  updateCourtMemoVisibility();
+}
+
+function syncTripValue() {
+  const chips = document.querySelectorAll('.trip-chip.active');
+  const vals = Array.from(chips).map(c => c.dataset.val);
+  document.getElementById('businessTrip').value = vals.length ? vals.join(',') : '없음';
+}
+
+function syncTripChips() {
+  const val = document.getElementById('businessTrip').value || '없음';
+  const active = val === '없음' ? [] : val.split(',');
+  document.querySelectorAll('.trip-chip').forEach(c => {
+    c.classList.toggle('active', active.includes(c.dataset.val));
+  });
 }
 
 // ── 재판/회의 메모 조건부 표시 ──
@@ -949,12 +980,18 @@ function updateCourtMemoVisibility() {
   const icon = document.getElementById('courtMemoIcon');
   const badge = document.getElementById('courtMemoBadge');
   const ta = document.getElementById('courtMemo');
-  const trip = document.getElementById('businessTrip').value;
-  if (trip === '법원') {
+  const vals = (document.getElementById('businessTrip').value || '없음').split(',');
+  const hasCourt = vals.includes('법원');
+  const hasMeeting = vals.includes('회의');
+  if (hasCourt && hasMeeting) {
+    card.style.display = '';
+    label.textContent = '재판/회의 메모'; icon.textContent = '⚖️'; badge.textContent = '법원+회의'; badge.className = 'field-label-badge blue';
+    if (!ta.value) ta.placeholder = COURT_PLACEHOLDER + '\n\n── 회의 ──\n' + MEETING_PLACEHOLDER;
+  } else if (hasCourt) {
     card.style.display = '';
     label.textContent = '재판 메모'; icon.textContent = '⚖️'; badge.textContent = '법원'; badge.className = 'field-label-badge blue';
     if (!ta.value) ta.placeholder = COURT_PLACEHOLDER;
-  } else if (trip === '회의') {
+  } else if (hasMeeting) {
     card.style.display = '';
     label.textContent = '회의 메모'; icon.textContent = '🤝'; badge.textContent = '회의'; badge.className = 'field-label-badge green';
     if (!ta.value) ta.placeholder = MEETING_PLACEHOLDER;
@@ -1200,7 +1237,7 @@ function renderListView() {
       <div class="sr-date" style="display:flex;align-items:center;gap:10px;">
         ${fmtDate(k)}
         ${e.arrivalTime?`<span style="font-size:11px;color:var(--ink3);">출근 ${e.arrivalTime}</span>`:''}
-        ${e.businessTrip&&e.businessTrip!=='없음'?`<span style="font-size:10.5px;padding:1px 8px;background:rgba(139,32,0,0.1);color:var(--accent);border-radius:20px;">${e.businessTrip}</span>`:''}
+        ${e.businessTrip&&e.businessTrip!=='없음'?e.businessTrip.split(',').map(v=>`<span style="font-size:10.5px;padding:1px 8px;background:rgba(139,32,0,0.1);color:var(--accent);border-radius:20px;">${escapeHtml(v)}</span>`).join(' '):''}
       </div>
       <div class="sr-content" style="margin-top:7px;">
         ${fields.map(f=>`<div style="margin-bottom:4px;"><strong style="font-size:11px;color:var(--ink3)">${f.icon} ${f.label}</strong> — ${escapeHtml(f.val.slice(0,80))}${f.val.length>80?'…':''}</div>`).join('')}
