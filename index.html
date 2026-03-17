@@ -791,17 +791,25 @@ async function syncTasks() {
       </div>`;
     }).join('');
 
-    // 툴팁 위치 자동 조정: 위로 잘리면 아래로
+    // 툴팁 위치 자동 조정: 칩이 화면 상단 가까이 있으면 아래로
     row.querySelectorAll('.gcal-chip').forEach(chip => {
       chip.addEventListener('mouseenter', () => {
         const tip = chip.querySelector('.task-tooltip');
         if (!tip) return;
-        tip.classList.remove('below'); tip.classList.add('above');
-        const rect = tip.getBoundingClientRect();
-        if (rect.top < 0) { tip.classList.remove('above'); tip.classList.add('below'); }
-        // 좌우 잘림 보정
-        if (rect.left < 0) { tip.style.left = '0'; tip.style.transform = 'none'; }
-        else if (rect.right > window.innerWidth) { tip.style.left = 'auto'; tip.style.right = '0'; tip.style.transform = 'none'; }
+        const chipRect = chip.getBoundingClientRect();
+        // 칩 위에 툴팁 공간(150px)이 부족하면 아래로
+        if (chipRect.top < 150) {
+          tip.classList.remove('above'); tip.classList.add('below');
+        } else {
+          tip.classList.remove('below'); tip.classList.add('above');
+        }
+        // 좌우 보정: 먼저 리셋 후 측정
+        tip.style.left = '50%'; tip.style.right = ''; tip.style.transform = 'translateX(-50%)';
+        requestAnimationFrame(() => {
+          const tipRect = tip.getBoundingClientRect();
+          if (tipRect.left < 4) { tip.style.left = '0'; tip.style.transform = 'none'; }
+          else if (tipRect.right > window.innerWidth - 4) { tip.style.left = 'auto'; tip.style.right = '0'; tip.style.transform = 'none'; }
+        });
       });
     });
 
