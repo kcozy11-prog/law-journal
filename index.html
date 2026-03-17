@@ -7,8 +7,11 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@300;400;500;600;700&family=JetBrains+Mono:wght@300;400;500&family=Noto+Sans+KR:wght@300;400;500&display=swap" rel="stylesheet">
 
-<!-- Google Identity Services (OAuth 2.0) -->
-<script src="https://accounts.google.com/gsi/client" async defer onload="gisLoaded()"></script>
+<!-- Firebase -->
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
+
 <!-- Google API client -->
 <script src="https://apis.google.com/js/api.js" async defer
   onload="gapiLoaded()" onerror="console.warn('GAPI load failed')"></script>
@@ -251,11 +254,28 @@
 <body>
 <div class="app">
 
+  <!-- Firebase Auth Overlay -->
+  <div id="firebaseAuthOverlay" style="position:fixed;inset:0;z-index:1000;background:var(--ink);display:flex;align-items:center;justify-content:center;">
+    <div style="background:var(--paper);border-radius:14px;padding:40px 36px;width:340px;text-align:center;">
+      <div style="font-family:'Noto Serif KR',serif;font-size:10px;font-weight:300;letter-spacing:0.32em;color:var(--gold);text-transform:uppercase;margin-bottom:5px;">Law Journal</div>
+      <div style="font-family:'Noto Serif KR',serif;font-size:20px;font-weight:600;color:var(--ink);margin-bottom:6px;">업무일지</div>
+      <div style="font-size:12px;color:var(--ink3);margin-bottom:24px;">Google 계정으로 로그인하면<br>모든 기기에서 일지가 동기화됩니다.</div>
+      <div id="fbAuthError" style="font-size:12px;color:var(--accent);margin-bottom:10px;display:none;"></div>
+      <button onclick="fbGoogleLogin()" style="width:100%;padding:12px;background:white;color:var(--ink);border:1px solid var(--paper3);border-radius:7px;font-family:'Noto Sans KR',sans-serif;font-size:13px;font-weight:500;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:10px;">
+        <svg width="18" height="18" viewBox="0 0 24 24"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg>
+        Google 계정으로 로그인
+      </button>
+    </div>
+  </div>
+
   <!-- SIDEBAR -->
   <aside class="sidebar">
-    <div class="sidebar-header">
-      <div class="sidebar-logo">Law Journal</div>
-      <div class="sidebar-title">업무일지</div>
+    <div class="sidebar-header" style="display:flex;align-items:center;justify-content:space-between;">
+      <div>
+        <div class="sidebar-logo">Law Journal</div>
+        <div class="sidebar-title">업무일지</div>
+      </div>
+      <button id="fbLogoutBtn" onclick="fbAuth.signOut()" title="로그아웃" style="display:none;background:none;border:1px solid rgba(184,134,11,0.3);color:var(--gold);font-size:11px;padding:4px 10px;border-radius:5px;cursor:pointer;font-family:'Noto Sans KR',sans-serif;">로그아웃</button>
     </div>
 
     <!-- GCal Connection Status -->
@@ -292,6 +312,7 @@
       <button class="topbar-btn gcal-sync" id="syncBtn" onclick="syncGCalEvents()" disabled>
         📅 GCal 동기화
       </button>
+      <button class="topbar-btn" onclick="exportAllCSV()">📊 CSV</button>
       <button class="topbar-btn" onclick="exportEntry()">⬇ 내보내기</button>
       <button class="topbar-btn primary" onclick="saveEntry()">💾 저장</button>
     </div>
@@ -417,79 +438,30 @@
 
     <!-- ── SETUP VIEW ── -->
     <div class="view content" id="view-setup">
-      <div class="section-title">Google Calendar 연동 설정</div>
+      <div class="section-title">설정</div>
       <div class="setup-panel">
         <div class="setup-header">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="white"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
-          <h2>Google Calendar API 직접 연동</h2>
+          <h2>Google Calendar 연동</h2>
         </div>
         <div class="setup-body">
 
           <div class="setup-step">
-            <div class="step-num" id="step1num">1</div>
+            <div class="step-num" id="gcalStepStatus">1</div>
             <div class="step-content">
-              <div class="step-title">Google Cloud Console에서 프로젝트 생성 및 API 활성화</div>
-              <div class="step-desc">
-                아래 링크에서 새 프로젝트를 만들고, <strong>Google Calendar API</strong>를 검색해 활성화합니다.<br>
-                (이미 프로젝트가 있다면 그대로 사용하셔도 됩니다)
-              </div>
-              <a class="step-link" href="https://console.cloud.google.com/apis/library/calendar-json.googleapis.com" target="_blank">
-                🔗 Google Calendar API 활성화 페이지 열기
-              </a>
-            </div>
-          </div>
-
-          <div class="setup-step">
-            <div class="step-num" id="step2num">2</div>
-            <div class="step-content">
-              <div class="step-title">OAuth 2.0 클라이언트 ID 발급</div>
-              <div class="step-desc">
-                <strong>사용자 인증 정보</strong> → <strong>사용자 인증 정보 만들기</strong> → <strong>OAuth 클라이언트 ID</strong><br>
-                애플리케이션 유형: <strong>웹 애플리케이션</strong><br>
-                승인된 JavaScript 출처에 이 파일을 열 주소 추가 (로컬: <code>http://localhost</code> 또는 실제 URL)<br><br>
-                ⚠️ <strong>OAuth 동의 화면</strong>도 먼저 설정해야 합니다 (테스트 사용자에 본인 이메일 추가)
-              </div>
-              <a class="step-link" href="https://console.cloud.google.com/apis/credentials" target="_blank">
-                🔗 사용자 인증 정보 페이지 열기
-              </a>
-            </div>
-          </div>
-
-          <div class="setup-step">
-            <div class="step-num" id="step3num">3</div>
-            <div class="step-content">
-              <div class="step-title">Client ID 입력</div>
-              <div class="step-desc">발급받은 클라이언트 ID를 붙여넣으세요. <code>xxxxxxxxx.apps.googleusercontent.com</code> 형식입니다.</div>
-              <div class="step-input-row">
-                <input type="text" class="step-input" id="clientIdInput"
-                  placeholder="000000000000-xxxxxxxxxxxxxxxx.apps.googleusercontent.com">
-                <button class="step-btn" onclick="saveClientId()">저장</button>
-              </div>
-              <div id="clientIdSaved" style="font-size:11.5px;color:var(--green);margin-top:6px;display:none;">✅ 저장됨</div>
-            </div>
-          </div>
-
-          <div class="setup-step">
-            <div class="step-num" id="step4num">4</div>
-            <div class="step-content">
-              <div class="step-title">Google 계정으로 로그인</div>
-              <div class="step-desc">Client ID 저장 후 아래 버튼으로 Google 계정에 로그인합니다. Calendar 읽기 권한만 요청합니다.</div>
+              <div class="step-title">Google Calendar 연동 상태</div>
+              <div class="step-desc" id="gcalSetupDesc">Google 로그인 시 Calendar/Tasks 권한이 자동으로 부여됩니다.</div>
               <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;">
-                <button class="step-btn" onclick="signInGoogle()" id="signInBtn">🔑 Google 로그인</button>
-                <button class="step-btn danger" onclick="signOutGoogle()" id="signOutBtn" style="display:none;">로그아웃</button>
-              </div>
-              <div id="loginStatus" style="font-size:11.5px;margin-top:8px;color:var(--ink3);"></div>
-              <div style="margin-top:8px;">
-                <button class="step-btn" style="background:#34a853;" onclick="manualSheetsLoad()">☁️ Sheets에서 오늘 일지 수동 불러오기</button>
+                <button class="step-btn" onclick="refreshGoogleToken()">🔄 Calendar 권한 새로고침</button>
               </div>
             </div>
           </div>
 
           <div class="setup-step">
-            <div class="step-num" id="step5num">5</div>
+            <div class="step-num">2</div>
             <div class="step-content">
               <div class="step-title">연동 테스트</div>
-              <div class="step-desc">로그인 완료 후 오늘 일정을 불러와 정상 작동을 확인합니다.</div>
+              <div class="step-desc">오늘 일정을 불러와 정상 작동을 확인합니다.</div>
               <div style="margin-top:8px;">
                 <button class="step-btn" onclick="testFetch()">🧪 오늘 일정 테스트 불러오기</button>
               </div>
@@ -497,13 +469,19 @@
             </div>
           </div>
 
-        </div>
-      </div>
+          <div class="setup-step">
+            <div class="step-num">3</div>
+            <div class="step-content">
+              <div class="step-title">데이터 관리</div>
+              <div class="step-desc">Firebase에 저장된 모든 일지를 CSV로 내보내거나, 데이터를 동기화합니다.</div>
+              <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;">
+                <button class="step-btn" style="background:#34a853;" onclick="exportAllCSV()">📊 전체 CSV 내보내기</button>
+                <button class="step-btn" onclick="bulkSyncFromFirebase()">🔄 Firebase 동기화</button>
+              </div>
+            </div>
+          </div>
 
-      <!-- Saved Client ID display -->
-      <div id="currentConfigDisplay" style="max-width:680px;font-size:12px;color:var(--ink3);padding:6px 4px;display:none;">
-        저장된 Client ID: <span id="savedClientIdDisplay" style="font-family:'JetBrains Mono',monospace;color:var(--ink2);"></span>
-        <button onclick="clearConfig()" style="margin-left:10px;font-size:11px;padding:2px 8px;border:1px solid var(--paper3);background:none;border-radius:4px;cursor:pointer;color:var(--accent);">초기화</button>
+        </div>
       </div>
     </div>
 
@@ -514,16 +492,29 @@
 
 <script>
 // ══════════════════════════════════════════
+//  FIREBASE INIT
+// ══════════════════════════════════════════
+const firebaseConfig = {
+  apiKey: "REDACTED_KEY",
+  authDomain: "law-jounal.firebaseapp.com",
+  databaseURL: "https://law-jounal-default-rtdb.firebaseio.com",
+  projectId: "law-jounal",
+  storageBucket: "law-jounal.firebasestorage.app",
+  messagingSenderId: "1049097224898",
+  appId: "1:1049097224898:web:6104af07ba199a74b9f15b"
+};
+firebase.initializeApp(firebaseConfig);
+const fbAuth = firebase.auth();
+const fbDb   = firebase.database();
+let fbUser   = null;
+
+// ══════════════════════════════════════════
 //  CONFIG & CONSTANTS
 // ══════════════════════════════════════════
 const DB_KEY      = 'lawJournal_entries';
-const CLIENT_KEY  = 'lawJournal_gcalClientId';
 const TOKEN_KEY   = 'lawJournal_gcalToken';
-const SCOPE       = 'https://www.googleapis.com/auth/calendar.readonly https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/tasks.readonly';
 const DISCOVERY   = 'https://www.googleapis.com/discovery/v1/apis/calendar/v3/rest';
 const LBOX_CAL_ID = '5dd32843ebd4cd2e01b418ad5add2f9dade2e80a033bc6d74742580fdc98d022@group.calendar.google.com';
-const SHEET_ID    = '10Ab2Gsf8Wq2TgECmU4m6FNMo5Ywd1Uz2cuVOBJRilQ8';
-const SHEET_NAME  = 'Sheet1';
 
 // ══════════════════════════════════════════
 //  UTILITIES
@@ -549,70 +540,53 @@ function fmtDate(k) {
   return `${d.getFullYear()}년 ${d.getMonth()+1}월 ${d.getDate()}일 (${days[d.getDay()]})`;
 }
 
-// Sheets-first data access
+// Firebase-first data access
 async function loadEntry(dateKey) {
-  // Try Sheets first, fall back to localStorage
-  if (accessToken) {
+  if (fbUser) {
     try {
-      const sheetsData = await loadFromSheets(dateKey);
-      if (sheetsData) {
-        // Sync to localStorage
+      const snap = await fbDb.ref(`users/${fbUser.uid}/entries/${dateKey}`).once('value');
+      const data = snap.val();
+      if (data) {
         const entries = getLocalEntries();
-        entries[dateKey] = { ...sheetsData, _savedAt: new Date().toISOString() };
+        entries[dateKey] = { ...data, _savedAt: data._savedAt || new Date().toISOString() };
         saveLocalEntries(entries);
-        return sheetsData;
+        return data;
       }
-    } catch(e) { console.warn('Sheets load failed, using local', e); }
+    } catch(e) { console.warn('Firebase load failed, using local', e); }
   }
   const entries = getLocalEntries();
   return entries[dateKey] || null;
 }
 
 async function saveEntryData(data, dateKey) {
-  // Immediate localStorage save
+  const entry = { ...data, _savedAt: new Date().toISOString() };
   const entries = getLocalEntries();
-  entries[dateKey] = { ...data, _savedAt: new Date().toISOString() };
+  entries[dateKey] = entry;
   saveLocalEntries(entries);
   renderRecentList(); renderCalendarMini();
-  // Async Sheets save
-  if (accessToken) {
-    try { await saveToSheets(data, dateKey); }
-    catch(e) { console.warn('Sheets save failed', e); showToast('⚠️ Sheets 저장 실패 — 로컬에는 저장됨'); }
+  if (fbUser) {
+    try { await fbDb.ref(`users/${fbUser.uid}/entries/${dateKey}`).set(entry); }
+    catch(e) { console.warn('Firebase save failed', e); showToast('⚠️ Firebase 저장 실패 — 로컬에는 저장됨'); }
   }
 }
 
-// Bulk sync: pull all Sheets data into localStorage on login
-async function bulkSyncFromSheets() {
-  if (!accessToken) return;
+async function bulkSyncFromFirebase() {
+  if (!fbUser) return;
   try {
-    const data = await sheetsGet(`${SHEET_NAME}!A:O`);
-    const rows = data.values || [];
-    if (rows.length <= 1) return; // only header or empty
+    const snap = await fbDb.ref(`users/${fbUser.uid}/entries`).once('value');
+    const all = snap.val();
+    if (!all) return;
     const entries = getLocalEntries();
     let synced = 0;
-    for (let i = 1; i < rows.length; i++) {
-      const row = rows[i];
-      const dateKey = row[0];
-      if (!dateKey || dateKey === '날짜') continue;
-      const sheetsEntry = {
-        entryDate: row[0]||'', arrivalTime: row[1]||'', leaveTime: row[2]||'',
-        businessTrip: row[3]||'없음', tripLocation: row[4]||'',
-        todayWork: row[5]||'', courtMemo: row[6]||'', callNotes: row[7]||'',
-        writtenDocs: row[8]||'', pendingDocs: row[9]||'',
-        delegated: row[10]||'', caseUpdates: row[11]||'',
-        learned: row[12]||'', etc: row[13]||'',
-        _savedAt: row[14] || new Date().toISOString()
-      };
-      // Sheets wins: overwrite local with Sheets data
-      entries[dateKey] = sheetsEntry;
+    for (const [dateKey, entry] of Object.entries(all)) {
+      entries[dateKey] = entry;
       synced++;
     }
     saveLocalEntries(entries);
     renderRecentList(); renderCalendarMini(); renderStats();
-    console.log(`bulkSync: ${synced}건 동기화`);
-    showToast(`☁️ Sheets에서 ${synced}건 동기화 완료`);
+    if (synced) showToast(`${synced}건 동기화 완료`);
   } catch(e) {
-    console.warn('bulkSync 실패', e);
+    console.warn('Firebase bulk sync failed', e);
   }
 }
 
@@ -623,7 +597,6 @@ let currentView  = 'write';
 let currentDate  = todayKey();
 let calYear, calMonth;
 let gapiReady    = false;
-let tokenClient  = null;
 let accessToken  = null;
 let gcalEvents   = [];
 
@@ -636,48 +609,13 @@ function gapiLoaded() {
       await gapi.client.init({ discoveryDocs: [DISCOVERY] });
       gapiReady = true;
       console.log('GAPI 초기화 완료');
-      // GIS가 이미 로드됐으면 바로 tokenClient 초기화
-      if (window.google && window.google.accounts) {
-        initTokenClient();
-      }
-      // 저장된 토큰 복원
-      restoreSavedToken();
+      // 저장된 Google access token 복원
+      restoreGoogleToken();
     } catch(e) { console.warn('GAPI init error', e); }
   });
 }
 
-function gisLoaded() {
-  // GIS 로드 완료 콜백 (필요시)
-  console.log('GIS 로드 완료');
-  if (gapiReady) initTokenClient();
-}
-
-function initTokenClient() {
-  const clientId = localStorage.getItem(CLIENT_KEY);
-  if (!clientId) return;
-  if (!window.google || !window.google.accounts) return;
-  try {
-    tokenClient = google.accounts.oauth2.initTokenClient({
-      client_id: clientId,
-      scope: SCOPE,
-      callback: handleTokenResponse,
-    });
-    console.log('tokenClient 초기화 완료');
-  } catch(e) { console.warn('GIS init error', e); }
-}
-
-async function initialSheetsSync() {
-  // Bulk sync all data, then load current entry
-  await bulkSyncFromSheets();
-  const data = await loadEntry(currentDate);
-  if (data) {
-    fillForm(data);
-    updateTopbar();
-    showToast('☁️ Sheets에서 일지 동기화 완료');
-  }
-}
-
-async function restoreSavedToken() {
+function restoreGoogleToken() {
   const saved = localStorage.getItem(TOKEN_KEY);
   if (!saved) return;
   try {
@@ -685,105 +623,42 @@ async function restoreSavedToken() {
     if (t.expires_at > Date.now()) {
       accessToken = t.access_token;
       gapi.client.setToken({ access_token: accessToken });
-      setGCalStatus('connected', '연결됨 — 동기화 준비');
+      setGCalStatus('connected', '연결됨');
       document.getElementById('syncBtn').disabled = false;
-      updateSetupStepNums();
       syncGCalEvents();
       syncTasks();
-      setTimeout(initialSheetsSync, 1500);
     } else {
       localStorage.removeItem(TOKEN_KEY);
-      console.log('토큰 만료됨');
+      setGCalStatus('', 'Calendar 토큰 만료 — 설정에서 새로고침');
     }
   } catch(e) { console.warn('토큰 복원 실패', e); }
 }
 
-function handleTokenResponse(resp) {
-  if (resp.error) {
-    showToast('❌ 로그인 실패: ' + resp.error);
-    setGCalStatus('', '로그인 실패');
-    return;
-  }
-  accessToken = resp.access_token;
-  gapi.client.setToken({ access_token: accessToken });
-
-  // Store with expiry (default 1 hour)
-  const expiresAt = Date.now() + (resp.expires_in || 3600) * 1000;
-  localStorage.setItem(TOKEN_KEY, JSON.stringify({
-    access_token: accessToken, expires_at: expiresAt
-  }));
-
+function setGoogleToken(token, expiresIn) {
+  accessToken = token;
+  gapi.client.setToken({ access_token: token });
+  const expiresAt = Date.now() + (expiresIn || 3600) * 1000;
+  localStorage.setItem(TOKEN_KEY, JSON.stringify({ access_token: token, expires_at: expiresAt }));
   setGCalStatus('connected', '연결됨');
   document.getElementById('syncBtn').disabled = false;
-  document.getElementById('loginStatus').textContent = '✅ 로그인 성공! Calendar 접근 권한 획득';
-  document.getElementById('signInBtn').style.display = 'none';
-  document.getElementById('signOutBtn').style.display = '';
-  showToast('✅ Google Calendar 연결됨 — Sheets 동기화 중...');
   syncGCalEvents();
   syncTasks();
-  updateSetupStepNums();
-  setTimeout(initialSheetsSync, 1500);
 }
 
-// ══════════════════════════════════════════
-//  AUTH ACTIONS
-// ══════════════════════════════════════════
-function saveClientId() {
-  const val = document.getElementById('clientIdInput').value.trim();
-  if (!val.includes('.apps.googleusercontent.com')) {
-    showToast('⚠ Client ID 형식이 올바르지 않습니다'); return;
+async function refreshGoogleToken() {
+  // Re-authenticate with Google to get fresh Calendar/Tasks token
+  const provider = new firebase.auth.GoogleAuthProvider();
+  provider.addScope('https://www.googleapis.com/auth/calendar.readonly');
+  provider.addScope('https://www.googleapis.com/auth/tasks.readonly');
+  try {
+    const result = await fbAuth.currentUser.reauthenticateWithPopup(provider);
+    const token = result.credential.accessToken;
+    setGoogleToken(token, 3600);
+    showToast('✅ Calendar 권한 새로고침 완료');
+  } catch(e) {
+    console.warn('Google 재인증 실패', e);
+    showToast('⚠️ 재인증 실패: ' + (e.message || ''));
   }
-  localStorage.setItem(CLIENT_KEY, val);
-  document.getElementById('clientIdSaved').style.display = '';
-  document.getElementById('savedClientIdDisplay').textContent = val.slice(0, 30) + '…';
-  document.getElementById('currentConfigDisplay').style.display = '';
-  if (gapiReady) initTokenClient();
-  showToast('💾 Client ID 저장됨');
-  updateSetupStepNums();
-}
-
-function signInGoogle() {
-  const clientId = localStorage.getItem(CLIENT_KEY);
-  if (!clientId) { showToast('⚠ 먼저 Client ID를 저장하세요'); return; }
-  if (!gapiReady) { showToast('⚠ Google API 로딩 중입니다. 3초 후 다시 시도하세요.'); return; }
-  if (!window.google || !window.google.accounts) {
-    showToast('⚠ Google 인증 라이브러리 로딩 중입니다. 잠시 후 시도하세요.');
-    return;
-  }
-  // tokenClient 없으면 재초기화
-  if (!tokenClient) {
-    initTokenClient();
-    if (!tokenClient) { showToast('⚠ 로그인 초기화 실패. 페이지를 새로고침(F5) 하세요.'); return; }
-  }
-  setGCalStatus('loading', '로그인 중...');
-  tokenClient.requestAccessToken({ prompt: 'consent' });
-}
-
-function signOutGoogle() {
-  if (accessToken && window.google) {
-    google.accounts.oauth2.revoke(accessToken, () => {});
-  }
-  accessToken = null;
-  gapi.client.setToken(null);
-  localStorage.removeItem(TOKEN_KEY);
-  gcalEvents = [];
-  setGCalStatus('', '연결 안됨');
-  document.getElementById('syncBtn').disabled = true;
-  document.getElementById('signInBtn').style.display = '';
-  document.getElementById('signOutBtn').style.display = 'none';
-  document.getElementById('loginStatus').textContent = '로그아웃 완료';
-  renderGCalStrip([]);
-  showToast('🔓 Google 로그아웃');
-}
-
-function clearConfig() {
-  if (!confirm('연동 설정을 초기화할까요?')) return;
-  signOutGoogle();
-  localStorage.removeItem(CLIENT_KEY);
-  document.getElementById('clientIdInput').value = '';
-  document.getElementById('clientIdSaved').style.display = 'none';
-  document.getElementById('currentConfigDisplay').style.display = 'none';
-  showToast('🗑 설정 초기화');
 }
 
 // ══════════════════════════════════════════
@@ -1017,24 +892,14 @@ function handleGCalStatusClick() {
 }
 
 function updateSetupStepNums() {
-  const hasClient = !!localStorage.getItem(CLIENT_KEY);
-  const hasToken  = !!accessToken;
-  ['step1num','step2num','step3num'].forEach(id => {
-    document.getElementById(id).classList.toggle('done', hasClient);
-  });
-  document.getElementById('step4num').classList.toggle('done', hasToken);
-  document.getElementById('step5num').classList.toggle('done', hasToken);
-
-  if (localStorage.getItem(CLIENT_KEY)) {
-    document.getElementById('clientIdInput').value = localStorage.getItem(CLIENT_KEY);
-    document.getElementById('clientIdSaved').style.display = '';
-    document.getElementById('savedClientIdDisplay').textContent = localStorage.getItem(CLIENT_KEY).slice(0, 30) + '…';
-    document.getElementById('currentConfigDisplay').style.display = '';
-  }
-  if (hasToken) {
-    document.getElementById('signInBtn').style.display  = 'none';
-    document.getElementById('signOutBtn').style.display = '';
-    document.getElementById('loginStatus').textContent  = '✅ 로그인됨';
+  const el = document.getElementById('gcalStepStatus');
+  const desc = document.getElementById('gcalSetupDesc');
+  if (accessToken) {
+    el.classList.add('done');
+    desc.textContent = '✅ Calendar/Tasks 연동됨';
+  } else {
+    el.classList.remove('done');
+    desc.textContent = 'Calendar 토큰이 없거나 만료되었습니다. 아래 버튼으로 새로고침하세요.';
   }
 }
 
@@ -1079,129 +944,9 @@ async function saveEntry() {
   showToast('✅ 저장됨 — ' + dateKey);
 }
 
-// ══════════════════════════════════════════
-//  GOOGLE SHEETS 연동 (직접 fetch 방식)
-// ══════════════════════════════════════════
-const SHEETS_BASE = 'https://sheets.googleapis.com/v4/spreadsheets';
-
-async function sheetsGet(range) {
-  const url = `${SHEETS_BASE}/${SHEET_ID}/values/${encodeURIComponent(range)}`;
-  const res = await fetch(url, { headers: { Authorization: `Bearer ${accessToken}` } });
-  if (!res.ok) throw new Error(`Sheets GET ${res.status}`);
-  return res.json();
-}
-
-async function sheetsUpdate(range, values) {
-  const url = `${SHEETS_BASE}/${SHEET_ID}/values/${encodeURIComponent(range)}?valueInputOption=RAW`;
-  const res = await fetch(url, {
-    method: 'PUT',
-    headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ values })
-  });
-  if (!res.ok) throw new Error(`Sheets PUT ${res.status}`);
-  return res.json();
-}
-
-async function sheetsAppend(range, values) {
-  const url = `${SHEETS_BASE}/${SHEET_ID}/values/${encodeURIComponent(range)}:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`;
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ values })
-  });
-  if (!res.ok) throw new Error(`Sheets POST ${res.status}`);
-  return res.json();
-}
-
-async function ensureSheetHeader() {
-  try {
-    const data = await sheetsGet(`${SHEET_NAME}!A1:Z1`);
-    const row = (data.values || [[]])[0];
-    if (!row || row[0] !== '날짜') {
-      await sheetsUpdate(`${SHEET_NAME}!A1`, [[
-        '날짜','출근','퇴근','출장','출장장소',
-        '오늘한일','재판메모','통화내용','제출한서면','제출예정서면',
-        '직원위임','사건업데이트','배운점','기타','저장시각'
-      ]]);
-    }
-  } catch(e) { console.warn('헤더 확인 실패', e); }
-}
-
-async function saveToSheets(data, dateKey) {
-  try {
-    await ensureSheetHeader();
-    const colData = await sheetsGet(`${SHEET_NAME}!A:A`);
-    const rows = colData.values || [];
-    let rowIdx = rows.findIndex(r => r[0] === dateKey);
-    const values = [[
-      dateKey,
-      data.arrivalTime||'', data.leaveTime||'',
-      data.businessTrip||'', data.tripLocation||'',
-      data.todayWork||'', data.courtMemo||'', data.callNotes||'',
-      data.writtenDocs||'', data.pendingDocs||'',
-      data.delegated||'', data.caseUpdates||'',
-      data.learned||'', data.etc||'',
-      new Date().toISOString()
-    ]];
-    if (rowIdx > 0) {
-      await sheetsUpdate(`${SHEET_NAME}!A${rowIdx+1}`, values);
-    } else {
-      await sheetsAppend(`${SHEET_NAME}!A:A`, values);
-    }
-    showToast('☁️ Google Sheets에도 저장됨');
-  } catch(e) {
-    console.warn('Sheets 저장 실패', e);
-    showToast('⚠️ Sheets 저장 실패 — 로컬에는 저장됨');
-  }
-}
-
-async function loadFromSheets(dateKey) {
-  if (!accessToken) return null;
-  try {
-    const data = await sheetsGet(`${SHEET_NAME}!A:O`);
-    const rows = data.values || [];
-    // 헤더 제외하고 날짜 매칭 (A열이 '날짜'인 행은 헤더)
-    const row = rows.find(r => r[0] === dateKey);
-    if (!row) {
-      showToast(`☁️ Sheets에 ${dateKey} 데이터 없음 — 로컬 사용`);
-      return null;
-    }
-    showToast(`☁️ Sheets에서 ${dateKey} 불러옴`);
-    return {
-      entryDate: row[0]||'', arrivalTime: row[1]||'', leaveTime: row[2]||'',
-      businessTrip: row[3]||'없음', tripLocation: row[4]||'',
-      todayWork: row[5]||'', courtMemo: row[6]||'', callNotes: row[7]||'',
-      writtenDocs: row[8]||'', pendingDocs: row[9]||'',
-      delegated: row[10]||'', caseUpdates: row[11]||'',
-      learned: row[12]||'', etc: row[13]||'',
-    };
-  } catch(e) {
-    console.warn('Sheets 불러오기 실패', e);
-    showToast('⚠️ Sheets 불러오기 실패: ' + (e.message||''));
-    return null;
-  }
-}
-
 function newEntry() {
   loadEntryToForm(todayKey());
   switchView('write');
-}
-
-async function manualSheetsLoad() {
-  if (!accessToken) { showToast('⚠ 먼저 로그인하세요'); return; }
-  showToast('☁️ Sheets에서 불러오는 중...');
-  const data = await loadFromSheets(currentDate);
-  if (data) {
-    fillForm(data);
-    const entries = getEntries();
-    entries[currentDate] = { ...data, _savedAt: new Date().toISOString() };
-    saveEntries(entries);
-    renderRecentList();
-    updateTopbar();
-    switchView('write');
-  } else {
-    showToast('⚠ Sheets에 오늘 데이터 없음');
-  }
 }
 
 // ══════════════════════════════════════════
@@ -1377,26 +1122,27 @@ function showToast(msg) {
 }
 
 let _lastAutoSaveJson = '';
-let _lastSheetsSyncTime = 0;
-const SHEETS_SYNC_INTERVAL = 5 * 60 * 1000; // 5분
+let _lastFirebaseSyncTime = 0;
+const FIREBASE_SYNC_INTERVAL = 5 * 60 * 1000; // 5분
 
 setInterval(()=>{
   const data=collectForm();
   const json = JSON.stringify(data);
-  // Dirty check: skip if nothing changed
   if (json === _lastAutoSaveJson) return;
   if(Object.values(data).some(v=>v&&v.trim&&v.trim())){
     _lastAutoSaveJson = json;
     const dateKey=data.entryDate||todayKey();
+    const entry={...data,_savedAt:new Date().toISOString()};
     const entries=getLocalEntries();
-    entries[dateKey]={...data,_savedAt:new Date().toISOString()};
+    entries[dateKey]=entry;
     saveLocalEntries(entries);
     renderRecentList();
-    // Sheets 동기화: 5분 간격 제한
+    // Firebase 동기화: 5분 간격 제한
     const now = Date.now();
-    if (accessToken && (now - _lastSheetsSyncTime) >= SHEETS_SYNC_INTERVAL) {
-      _lastSheetsSyncTime = now;
-      saveToSheets(data, dateKey).catch(e => console.warn('autosave Sheets fail', e));
+    if (fbUser && (now - _lastFirebaseSyncTime) >= FIREBASE_SYNC_INTERVAL) {
+      _lastFirebaseSyncTime = now;
+      fbDb.ref(`users/${fbUser.uid}/entries/${dateKey}`).set(entry)
+        .catch(e => console.warn('autosave Firebase fail', e));
     }
   }
 },60000);
@@ -1406,16 +1152,77 @@ document.addEventListener('keydown',e=>{
 });
 
 // ══════════════════════════════════════════
+//  FIREBASE AUTH (Google 로그인)
+// ══════════════════════════════════════════
+async function fbGoogleLogin() {
+  const provider = new firebase.auth.GoogleAuthProvider();
+  provider.addScope('https://www.googleapis.com/auth/calendar.readonly');
+  provider.addScope('https://www.googleapis.com/auth/tasks.readonly');
+  try {
+    const result = await fbAuth.signInWithPopup(provider);
+    // Google access token 추출 → Calendar/Tasks API용
+    const token = result.credential.accessToken;
+    if (token && gapiReady) {
+      setGoogleToken(token, 3600);
+      showToast('✅ 로그인 완료 — Calendar 연동됨');
+    }
+  } catch(e) {
+    showFbAuthError(e);
+  }
+}
+
+function showFbAuthError(err) {
+  const el = document.getElementById('fbAuthError');
+  if (err.code === 'auth/popup-closed-by-user') return;
+  el.textContent = err.message || '로그인 실패';
+  el.style.display = '';
+}
+
+// ══════════════════════════════════════════
+//  CSV EXPORT
+// ══════════════════════════════════════════
+function exportAllCSV() {
+  const entries = getEntries();
+  const keys = Object.keys(entries).sort();
+  if (!keys.length) { showToast('내보낼 일지가 없습니다'); return; }
+  const headers = ['날짜','출근','퇴근','출장','출장장소','오늘한일','재판메모','통화내용','제출한서면','제출예정서면','직원위임','사건업데이트','배운점','기타'];
+  const fieldKeys = ['entryDate','arrivalTime','leaveTime','businessTrip','tripLocation','todayWork','courtMemo','callNotes','writtenDocs','pendingDocs','delegated','caseUpdates','learned','etc'];
+  const esc = v => { const s=String(v||''); return (s.includes(',')||s.includes('"')||s.includes('\n')) ? '"'+s.replace(/"/g,'""')+'"' : s; };
+  const lines = [headers.map(esc).join(','), ...keys.map(k => { const e=entries[k]; return fieldKeys.map(f=>esc(e[f])).join(','); })];
+  const blob = new Blob(['\uFEFF'+lines.join('\n')], {type:'text/csv;charset=utf-8'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href=url; a.download=`업무일지_전체_${todayKey()}.csv`; a.click();
+  URL.revokeObjectURL(url);
+  showToast(`📊 CSV 내보내기 완료 (${keys.length}건)`);
+}
+
+// ══════════════════════════════════════════
 //  INIT
 // ══════════════════════════════════════════
-window.onload=function(){
+function initApp() {
   const now=new Date(); calYear=now.getFullYear(); calMonth=now.getMonth();
   document.getElementById('entryDate').value=todayKey();
   document.getElementById('arrivalTime').value='09:00';
   loadEntryToForm(todayKey());
   renderCalendarMini(); renderRecentList(); updateTopbar(); renderStats();
   updateSetupStepNums();
-};
+}
+
+fbAuth.onAuthStateChanged(user => {
+  fbUser = user;
+  if (user) {
+    document.getElementById('firebaseAuthOverlay').style.display = 'none';
+    document.getElementById('fbLogoutBtn').style.display = '';
+    initApp();
+    bulkSyncFromFirebase();
+    // 페이지 새로고침 시 저장된 Google token 복원 (GAPI 로드 후)
+    if (gapiReady) restoreGoogleToken();
+  } else {
+    document.getElementById('firebaseAuthOverlay').style.display = 'flex';
+    document.getElementById('fbLogoutBtn').style.display = 'none';
+    accessToken = null;
+  }
+});
 </script>
 </body>
 </html>
