@@ -179,6 +179,14 @@
   .gcal-chip-time { font-family:'JetBrains Mono',monospace; font-size:10.5px; opacity:0.7; }
   .gcal-chip-allday { background:rgba(52,168,83,0.08); border-color:rgba(52,168,83,0.2); color:var(--green); }
   .gcal-empty { padding:12px 16px; font-size:12px; color:var(--ink3); }
+  .deleg-item { display:flex; align-items:center; gap:8px; padding:5px 0; border-bottom:1px solid var(--paper3); font-size:12.5px; }
+  .deleg-item:last-child { border-bottom:none; }
+  .deleg-item input[type="checkbox"] { width:15px; height:15px; cursor:pointer; accent-color:var(--green); flex-shrink:0; }
+  .deleg-item .deleg-text { flex:1; color:var(--ink2); line-height:1.5; }
+  .deleg-item.done .deleg-text { text-decoration:line-through; color:var(--ink3); opacity:0.6; }
+  .deleg-item .deleg-del { background:none; border:none; color:var(--ink3); cursor:pointer; font-size:14px; padding:0 4px; opacity:0.4; }
+  .deleg-item .deleg-del:hover { opacity:1; color:var(--accent); }
+
   #floatingTooltip { display:none; position:fixed; background:var(--ink); color:var(--paper2); padding:10px 14px; border-radius:8px; font-size:11.5px; line-height:1.7; white-space:pre-wrap; min-width:220px; max-width:340px; z-index:9999; box-shadow:0 4px 16px rgba(0,0,0,0.25); pointer-events:none; word-break:keep-all; }
   #floatingTooltip::after { content:''; position:absolute; bottom:100%; left:20px; border:6px solid transparent; border-bottom-color:var(--ink); }
 
@@ -362,7 +370,7 @@
         </div>
         <div class="meta-card">
           <label>출장</label><div class="divider"></div>
-          <select id="businessTrip">
+          <select id="businessTrip" onchange="updateCourtMemoVisibility()">
             <option value="없음">없음</option>
             <option value="출장">출장</option>
             <option value="재택">재택</option>
@@ -382,9 +390,9 @@
           <div class="field-label"><span class="field-label-icon">📝</span><span class="field-label-text">오늘 한 일</span></div>
           <textarea class="field-textarea tall" id="todayWork" placeholder="[사건별 진행]&#10;- 2024가합1234 / 준비서면 초안 작성&#10;[서면 작성·검토]&#10;- ○○ 답변서 검토 완료&#10;[회의·상담]&#10;- 14:00 의뢰인 미팅 (○○ 건)&#10;[행정 업무]&#10;- 사건 수임계약서 정리"></textarea>
         </div>
-        <div class="field-card">
-          <div class="field-label"><span class="field-label-icon">⚖️</span><span class="field-label-text">재판 메모</span><span class="field-label-badge blue">법원</span></div>
-          <textarea class="field-textarea" id="courtMemo" placeholder="[사건번호] 2024가합1234 / ○○지방법원 제○부&#10;[기일 유형] 변론기일 / 조정기일 / 선고&#10;[판사 지시] &#10;[상대방 주장] &#10;[다음 기일] 2024-00-00 00:00"></textarea>
+        <div class="field-card" id="courtMemoCard" style="display:none;">
+          <div class="field-label"><span class="field-label-icon" id="courtMemoIcon">⚖️</span><span class="field-label-text" id="courtMemoLabel">재판 메모</span><span class="field-label-badge blue" id="courtMemoBadge">법원</span></div>
+          <textarea class="field-textarea" id="courtMemo" placeholder=""></textarea>
         </div>
         <div class="field-card">
           <div class="field-label"><span class="field-label-icon">📞</span><span class="field-label-text">통화 내용</span></div>
@@ -400,11 +408,12 @@
         </div>
         <div class="field-card">
           <div class="field-label"><span class="field-label-icon">👥</span><span class="field-label-text">직원에게 위임한 일</span></div>
-          <textarea class="field-textarea short" id="delegated" placeholder="[직원명] ○○○&#10;[업무 내용] 소장 부본 송달 확인&#10;[기한] 2024-00-00&#10;[진행 상태] 진행 중 / 완료"></textarea>
-        </div>
-        <div class="field-card">
-          <div class="field-label"><span class="field-label-icon">💬</span><span class="field-label-text">사건 업데이트 (직원 보고)</span></div>
-          <textarea class="field-textarea short" id="caseUpdates" placeholder="[직원 보고] ○○○: 소장 접수 완료&#10;[사건별 진행] 2024가합1234 - 상대방 답변서 수령&#10;[송달·접수] ○○ 결정문 송달&#10;[기일 변경] 2024-00-00 → 2024-00-00"></textarea>
+          <div id="delegatedList" style="padding:8px 16px 4px;"></div>
+          <div style="display:flex;gap:6px;padding:4px 16px 10px;">
+            <input type="text" id="delegatedInput" placeholder="위임 업무 입력 후 Enter (예: 이사무 / 판례 조사 / 3월 20일)" style="flex:1;padding:8px 12px;border:1px solid var(--paper3);border-radius:6px;font-family:'Noto Sans KR',sans-serif;font-size:12.5px;color:var(--ink);outline:none;" onkeydown="if(event.key==='Enter'){addDelegatedItem();event.preventDefault();}">
+            <button onclick="addDelegatedItem()" style="padding:8px 14px;background:var(--ink);color:var(--paper2);border:none;border-radius:6px;font-size:12px;cursor:pointer;font-family:'Noto Sans KR',sans-serif;white-space:nowrap;">+ 추가</button>
+          </div>
+          <textarea class="field-textarea short" id="delegated" style="display:none;"></textarea>
         </div>
         <div class="field-card full">
           <div class="field-label"><span class="field-label-icon">💡</span><span class="field-label-text">오늘 업무에서 배운 점</span></div>
@@ -689,6 +698,7 @@ async function syncGCalEvents(dateKey) {
 
     gcalEvents = (respLbox.result.items || []).map(e => ({...e, _src:'LBOX'}));
     renderGCalStrip(gcalEvents, target);
+    updateCourtMemoVisibility();
     setGCalStatus('connected', `연결됨 — ${gcalEvents.length}건`);
     document.getElementById('syncBtn').disabled = false;
     showToast(`📅 ${target} 일정 ${gcalEvents.length}건 로드`);
@@ -914,7 +924,7 @@ function updateSetupStepNums() {
 // ══════════════════════════════════════════
 
 const FIELDS = ['entryDate','arrivalTime','leaveTime','businessTrip','tripLocation',
-  'todayWork','courtMemo','callNotes','writtenDocs','pendingDocs','delegated','caseUpdates','learned','etc'];
+  'todayWork','courtMemo','callNotes','writtenDocs','pendingDocs','delegated','learned','etc'];
 
 function collectForm() {
   const data = {};
@@ -923,6 +933,92 @@ function collectForm() {
 }
 function fillForm(data) {
   FIELDS.forEach(id => { const el=document.getElementById(id); if(el && data[id]!==undefined) el.value=data[id]; });
+  // 위임 체크리스트 렌더링
+  renderDelegatedList();
+  // 재판/회의 메모 표시 여부
+  updateCourtMemoVisibility();
+}
+
+// ── 재판/회의 메모 조건부 표시 ──
+const COURT_PLACEHOLDER = '[사건번호] 2024가합1234 / ○○지방법원 제○부\n[기일 유형] 변론기일 / 조정기일 / 선고\n[판사 지시] \n[상대방 주장] \n[다음 기일] 2024-00-00 00:00';
+const MEETING_PLACEHOLDER = '[회의명] ○○ 회의\n[참석자] \n[안건] \n[결정사항] \n[후속 조치] ';
+
+function updateCourtMemoVisibility() {
+  const card = document.getElementById('courtMemoCard');
+  const label = document.getElementById('courtMemoLabel');
+  const icon = document.getElementById('courtMemoIcon');
+  const badge = document.getElementById('courtMemoBadge');
+  const ta = document.getElementById('courtMemo');
+  const trip = document.getElementById('businessTrip').value;
+  const hasMeeting = gcalEvents.some(e => {
+    const s = (e.summary||'').toLowerCase();
+    return s.includes('회의') || s.includes('미팅') || s.includes('meeting') || s.includes('상담');
+  });
+  if (trip === '법원') {
+    card.style.display = '';
+    label.textContent = '재판 메모'; icon.textContent = '⚖️'; badge.textContent = '법원'; badge.className = 'field-label-badge blue';
+    if (!ta.value) ta.placeholder = COURT_PLACEHOLDER;
+  } else if (hasMeeting) {
+    card.style.display = '';
+    label.textContent = '회의 메모'; icon.textContent = '🤝'; badge.textContent = '회의'; badge.className = 'field-label-badge green';
+    if (!ta.value) ta.placeholder = MEETING_PLACEHOLDER;
+  } else if (ta.value && ta.value.trim()) {
+    // 데이터가 있으면 항상 표시
+    card.style.display = '';
+    label.textContent = '재판/회의 메모'; icon.textContent = '📋'; badge.textContent = ''; badge.className = 'field-label-badge';
+  } else {
+    card.style.display = 'none';
+  }
+}
+
+// ── 위임 체크리스트 ──
+function parseDelegatedItems() {
+  const raw = document.getElementById('delegated').value || '';
+  if (!raw.trim()) return [];
+  return raw.split('\n').filter(l => l.trim()).map(line => {
+    const done = line.startsWith('[x] ');
+    return { text: done ? line.slice(4) : line, done };
+  });
+}
+
+function serializeDelegatedItems(items) {
+  document.getElementById('delegated').value = items.map(i => (i.done ? '[x] ' : '') + i.text).join('\n');
+}
+
+function renderDelegatedList() {
+  const list = document.getElementById('delegatedList');
+  const items = parseDelegatedItems();
+  if (!items.length) { list.innerHTML = '<div style="font-size:12px;color:var(--ink3);padding:4px 0;">위임한 업무가 없습니다.</div>'; return; }
+  list.innerHTML = items.map((item, i) => `<div class="deleg-item${item.done?' done':''}">
+    <input type="checkbox" ${item.done?'checked':''} onchange="toggleDelegatedItem(${i})">
+    <span class="deleg-text">${escapeHtml(item.text)}</span>
+    <button class="deleg-del" onclick="removeDelegatedItem(${i})" title="삭제">×</button>
+  </div>`).join('');
+}
+
+function addDelegatedItem() {
+  const input = document.getElementById('delegatedInput');
+  const text = input.value.trim();
+  if (!text) return;
+  const items = parseDelegatedItems();
+  items.push({ text, done: false });
+  serializeDelegatedItems(items);
+  renderDelegatedList();
+  input.value = '';
+}
+
+function toggleDelegatedItem(idx) {
+  const items = parseDelegatedItems();
+  if (items[idx]) items[idx].done = !items[idx].done;
+  serializeDelegatedItems(items);
+  renderDelegatedList();
+}
+
+function removeDelegatedItem(idx) {
+  const items = parseDelegatedItems();
+  items.splice(idx, 1);
+  serializeDelegatedItems(items);
+  renderDelegatedList();
 }
 
 async function loadEntryToForm(dateKey) {
@@ -971,7 +1067,6 @@ function exportEntry() {
     `## 제출한 서면\n${data.writtenDocs||'-'}`,``,
     `## 제출 예정 서면\n${data.pendingDocs||'-'}`,``,
     `## 직원 위임\n${data.delegated||'-'}`,``,
-    `## 사건 업데이트\n${data.caseUpdates||'-'}`,``,
     `## 오늘 배운 점\n${data.learned||'-'}`,``,
     `## 기타\n${data.etc||'-'}`,
   ].join('\n');
@@ -1070,7 +1165,7 @@ function fullSearch(q) {
   countEl.textContent=`${hits.length}건`;
   if(!hits.length){results.innerHTML='<div class="empty-state"><div class="es-icon">🗂</div><p>검색 결과 없음</p></div>';return;}
   const hl=s=>{const escaped=escapeHtml(s||'');return escaped.replace(new RegExp(escapeHtml(q).replace(/[.*+?^${}()|[\]\\]/g,'\\$&'),'gi'),m=>`<mark>${m}</mark>`);};
-  const fLabels={todayWork:'오늘 한 일',courtMemo:'재판 메모',callNotes:'통화',writtenDocs:'제출한 서면',pendingDocs:'제출 예정',delegated:'위임',caseUpdates:'사건 업데이트',learned:'배운 점',etc:'기타'};
+  const fLabels={todayWork:'오늘 한 일',courtMemo:'재판/회의 메모',callNotes:'통화',writtenDocs:'제출한 서면',pendingDocs:'제출 예정',delegated:'위임',learned:'배운 점',etc:'기타'};
   results.innerHTML=hits.map(([k,e])=>{
     const tags=Object.entries(fLabels).filter(([f])=>(e[f]||'').toLowerCase().includes(lq)).map(([,l])=>`<span class="sr-field-tag">${l}</span>`).join('');
     const snippet=Object.entries(fLabels).map(([f,l])=>{
@@ -1216,8 +1311,8 @@ function exportAllCSV() {
   const entries = getEntries();
   const keys = Object.keys(entries).sort();
   if (!keys.length) { showToast('내보낼 일지가 없습니다'); return; }
-  const headers = ['날짜','출근','퇴근','출장','출장장소','오늘한일','재판메모','통화내용','제출한서면','제출예정서면','직원위임','사건업데이트','배운점','기타'];
-  const fieldKeys = ['entryDate','arrivalTime','leaveTime','businessTrip','tripLocation','todayWork','courtMemo','callNotes','writtenDocs','pendingDocs','delegated','caseUpdates','learned','etc'];
+  const headers = ['날짜','출근','퇴근','출장','출장장소','오늘한일','재판회의메모','통화내용','제출한서면','제출예정서면','직원위임','배운점','기타'];
+  const fieldKeys = ['entryDate','arrivalTime','leaveTime','businessTrip','tripLocation','todayWork','courtMemo','callNotes','writtenDocs','pendingDocs','delegated','learned','etc'];
   const esc = v => { const s=String(v||''); return (s.includes(',')||s.includes('"')||s.includes('\n')) ? '"'+s.replace(/"/g,'""')+'"' : s; };
   const lines = [headers.map(esc).join(','), ...keys.map(k => { const e=entries[k]; return fieldKeys.map(f=>esc(e[f])).join(','); })];
   const blob = new Blob(['\uFEFF'+lines.join('\n')], {type:'text/csv;charset=utf-8'});
