@@ -1366,9 +1366,10 @@ function initApp() {
   renderCalendarMini(); renderRecentList(); updateTopbar(); renderStats();
   updateSetupStepNums();
   // 버전 표시 (GitHub 최신 커밋 해시)
-  fetch('https://api.github.com/repos/kcozy11-prog/law-journal/commits/main',{cache:'no-store'})
-    .then(r=>r.json()).then(d=>{document.getElementById('appVersion').textContent='v'+d.sha.slice(0,7);})
-    .catch(()=>{});
+  fetch('https://api.github.com/repos/kcozy11-prog/law-journal/commits/main?_='+Date.now(),{cache:'no-store',headers:{'If-None-Match':''}})
+    .then(r=>r.json()).then(d=>{
+      if(d.sha) document.getElementById('appVersion').textContent='v'+d.sha.slice(0,7);
+    }).catch(()=>{});
 }
 
 fbAuth.onAuthStateChanged(user => {
