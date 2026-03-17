@@ -375,6 +375,7 @@
             <option value="출장">출장</option>
             <option value="재택">재택</option>
             <option value="법원">법원 출석</option>
+            <option value="회의">회의</option>
           </select>
         </div>
         <div class="meta-card" style="flex:1;">
@@ -698,7 +699,6 @@ async function syncGCalEvents(dateKey) {
 
     gcalEvents = (respLbox.result.items || []).map(e => ({...e, _src:'LBOX'}));
     renderGCalStrip(gcalEvents, target);
-    updateCourtMemoVisibility();
     setGCalStatus('connected', `연결됨 — ${gcalEvents.length}건`);
     document.getElementById('syncBtn').disabled = false;
     showToast(`📅 ${target} 일정 ${gcalEvents.length}건 로드`);
@@ -950,20 +950,15 @@ function updateCourtMemoVisibility() {
   const badge = document.getElementById('courtMemoBadge');
   const ta = document.getElementById('courtMemo');
   const trip = document.getElementById('businessTrip').value;
-  const hasMeeting = gcalEvents.some(e => {
-    const s = (e.summary||'').toLowerCase();
-    return s.includes('회의') || s.includes('미팅') || s.includes('meeting') || s.includes('상담');
-  });
   if (trip === '법원') {
     card.style.display = '';
     label.textContent = '재판 메모'; icon.textContent = '⚖️'; badge.textContent = '법원'; badge.className = 'field-label-badge blue';
     if (!ta.value) ta.placeholder = COURT_PLACEHOLDER;
-  } else if (hasMeeting) {
+  } else if (trip === '회의') {
     card.style.display = '';
     label.textContent = '회의 메모'; icon.textContent = '🤝'; badge.textContent = '회의'; badge.className = 'field-label-badge green';
     if (!ta.value) ta.placeholder = MEETING_PLACEHOLDER;
   } else if (ta.value && ta.value.trim()) {
-    // 데이터가 있으면 항상 표시
     card.style.display = '';
     label.textContent = '재판/회의 메모'; icon.textContent = '📋'; badge.textContent = ''; badge.className = 'field-label-badge';
   } else {
