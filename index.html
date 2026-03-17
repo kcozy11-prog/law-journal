@@ -180,8 +180,11 @@
   .gcal-chip-allday { background:rgba(52,168,83,0.08); border-color:rgba(52,168,83,0.2); color:var(--green); }
   .gcal-empty { padding:12px 16px; font-size:12px; color:var(--ink3); }
   .gcal-chip { position:relative; }
-  .task-tooltip { display:none; position:absolute; bottom:calc(100% + 8px); left:50%; transform:translateX(-50%); background:var(--ink); color:var(--paper2); padding:10px 14px; border-radius:8px; font-size:11.5px; line-height:1.7; white-space:pre-wrap; min-width:200px; max-width:320px; z-index:100; box-shadow:0 4px 16px rgba(0,0,0,0.25); pointer-events:none; }
-  .task-tooltip::after { content:''; position:absolute; top:100%; left:50%; transform:translateX(-50%); border:6px solid transparent; border-top-color:var(--ink); }
+  .task-tooltip { display:none; position:absolute; left:50%; transform:translateX(-50%); background:var(--ink); color:var(--paper2); padding:10px 14px; border-radius:8px; font-size:11.5px; line-height:1.7; white-space:pre-wrap; min-width:200px; max-width:320px; z-index:100; box-shadow:0 4px 16px rgba(0,0,0,0.25); pointer-events:none; }
+  .task-tooltip.above { bottom:calc(100% + 8px); }
+  .task-tooltip.above::after { content:''; position:absolute; top:100%; left:50%; transform:translateX(-50%); border:6px solid transparent; border-top-color:var(--ink); }
+  .task-tooltip.below { top:calc(100% + 8px); }
+  .task-tooltip.below::after { content:''; position:absolute; bottom:100%; left:50%; transform:translateX(-50%); border:6px solid transparent; border-bottom-color:var(--ink); }
   .gcal-chip:hover .task-tooltip { display:block; }
 
   /* Journal form */
@@ -784,9 +787,23 @@ async function syncTasks() {
       return `<div class="gcal-chip" style="background:rgba(45,90,39,0.06);border-color:rgba(45,90,39,0.15);color:var(--green);${isOverdue?'border-color:#c00;color:#c00;':''}">
         <span class="gcal-chip-time" style="color:inherit;">${dueStr}</span>
         <span>${escapeHtml(t.title)}</span>
-        <div class="task-tooltip">${tipLines.join('\n')}</div>
+        <div class="task-tooltip above">${tipLines.join('\n')}</div>
       </div>`;
     }).join('');
+
+    // 툴팁 위치 자동 조정: 위로 잘리면 아래로
+    row.querySelectorAll('.gcal-chip').forEach(chip => {
+      chip.addEventListener('mouseenter', () => {
+        const tip = chip.querySelector('.task-tooltip');
+        if (!tip) return;
+        tip.classList.remove('below'); tip.classList.add('above');
+        const rect = tip.getBoundingClientRect();
+        if (rect.top < 0) { tip.classList.remove('above'); tip.classList.add('below'); }
+        // 좌우 잘림 보정
+        if (rect.left < 0) { tip.style.left = '0'; tip.style.transform = 'none'; }
+        else if (rect.right > window.innerWidth) { tip.style.left = 'auto'; tip.style.right = '0'; tip.style.transform = 'none'; }
+      });
+    });
 
   } catch(e) {
     console.warn('Tasks 불러오기 실패', e);
