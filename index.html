@@ -179,13 +179,11 @@
   .gcal-chip-time { font-family:'JetBrains Mono',monospace; font-size:10.5px; opacity:0.7; }
   .gcal-chip-allday { background:rgba(52,168,83,0.08); border-color:rgba(52,168,83,0.2); color:var(--green); }
   .gcal-empty { padding:12px 16px; font-size:12px; color:var(--ink3); }
-  .trip-chip { padding:4px 10px; border:1px solid var(--paper3); border-radius:14px; background:white; font-family:'Noto Sans KR',sans-serif; font-size:11.5px; color:var(--ink3); cursor:pointer; transition:all 0.12s; }
-  .trip-chip:hover { border-color:var(--gold); color:var(--ink2); }
-  .trip-chip.active { background:var(--ink); color:var(--paper2); border-color:var(--ink); }
-  .trip-chip.active[data-val="법원"] { background:var(--blue); border-color:var(--blue); color:white; }
-  .trip-chip.active[data-val="회의"] { background:var(--green); border-color:var(--green); color:white; }
-  .trip-chip.active[data-val="출장"] { background:var(--accent); border-color:var(--accent); color:white; }
-  .trip-chip.active[data-val="재택"] { background:var(--gold); border-color:var(--gold); color:white; }
+  .event-memo-card .field-label-badge.blue { background:rgba(26,58,92,0.1); color:var(--blue); }
+  .event-memo-card .field-label-badge.green { background:rgba(45,90,39,0.1); color:var(--green); }
+  .event-memo-card .field-label-badge.red { background:rgba(139,32,0,0.1); color:var(--accent); }
+  .add-memo-btn { display:flex; align-items:center; justify-content:center; gap:6px; padding:12px; background:white; border:2px dashed var(--paper3); border-radius:10px; font-family:'Noto Sans KR',sans-serif; font-size:13px; color:var(--ink3); cursor:pointer; transition:all 0.15s; }
+  .add-memo-btn:hover { border-color:var(--gold); color:var(--gold); }
 
   .deleg-item { display:flex; align-items:center; gap:8px; padding:5px 0; border-bottom:1px solid var(--paper3); font-size:12.5px; }
   .deleg-item:last-child { border-bottom:none; }
@@ -376,21 +374,6 @@
           <label>퇴근</label><div class="divider"></div>
           <input type="time" id="leaveTime">
         </div>
-        <div class="meta-card" style="gap:6px;">
-          <label>유형</label><div class="divider"></div>
-          <div id="tripChips" style="display:flex;gap:5px;flex-wrap:wrap;">
-            <button type="button" class="trip-chip" data-val="출장" onclick="toggleTripChip(this)">출장</button>
-            <button type="button" class="trip-chip" data-val="재택" onclick="toggleTripChip(this)">재택</button>
-            <button type="button" class="trip-chip" data-val="법원" onclick="toggleTripChip(this)">법원</button>
-            <button type="button" class="trip-chip" data-val="회의" onclick="toggleTripChip(this)">회의</button>
-          </div>
-          <input type="hidden" id="businessTrip" value="없음">
-        </div>
-        <div class="meta-card" style="flex:1;">
-          <label>장소</label><div class="divider"></div>
-          <input type="text" id="tripLocation" placeholder="법원명, 장소 등..."
-            style="border:none;background:none;font-family:'Noto Sans KR',sans-serif;font-size:13px;color:var(--ink);outline:none;width:100%;">
-        </div>
       </div>
 
       <!-- Journal fields -->
@@ -398,10 +381,6 @@
         <div class="field-card full">
           <div class="field-label"><span class="field-label-icon">📝</span><span class="field-label-text">오늘 한 일</span></div>
           <textarea class="field-textarea tall" id="todayWork" placeholder="[사건별 진행]&#10;- 2024가합1234 / 준비서면 초안 작성&#10;[서면 작성·검토]&#10;- ○○ 답변서 검토 완료&#10;[회의·상담]&#10;- 14:00 의뢰인 미팅 (○○ 건)&#10;[행정 업무]&#10;- 사건 수임계약서 정리"></textarea>
-        </div>
-        <div class="field-card" id="courtMemoCard" style="display:none;">
-          <div class="field-label"><span class="field-label-icon" id="courtMemoIcon">⚖️</span><span class="field-label-text" id="courtMemoLabel">재판 메모</span><span class="field-label-badge blue" id="courtMemoBadge">법원</span></div>
-          <textarea class="field-textarea" id="courtMemo" placeholder=""></textarea>
         </div>
         <div class="field-card">
           <div class="field-label"><span class="field-label-icon">📞</span><span class="field-label-text">통화 내용</span></div>
@@ -424,6 +403,8 @@
           </div>
           <textarea class="field-textarea short" id="delegated" style="display:none;"></textarea>
         </div>
+        <div id="eventMemosContainer" class="full"></div>
+        <textarea id="eventMemos" style="display:none;"></textarea>
         <div class="field-card full">
           <div class="field-label"><span class="field-label-icon">💡</span><span class="field-label-text">오늘 업무에서 배운 점</span></div>
           <textarea class="field-textarea" id="learned" placeholder="[법리·판례] 대법원 2024다12345 — ○○ 관련 판시&#10;[실무 팁] 전자소송 ○○ 기능 활용법&#10;[절차적 교훈] ○○ 시 유의사항"></textarea>
@@ -707,6 +688,7 @@ async function syncGCalEvents(dateKey) {
 
     gcalEvents = (respLbox.result.items || []).map(e => ({...e, _src:'LBOX'}));
     renderGCalStrip(gcalEvents, target);
+    renderEventMemos();
     setGCalStatus('connected', `연결됨 — ${gcalEvents.length}건`);
     document.getElementById('syncBtn').disabled = false;
     showToast(`📅 ${target} 일정 ${gcalEvents.length}건 로드`);
@@ -895,10 +877,18 @@ function renderGCalStrip(events, dateKey) {
 }
 
 function insertEventToJournal(title, time) {
-  const field = document.getElementById('courtMemo');
-  const line  = `[${time}] ${title}`;
-  field.value = (field.value ? field.value + '\n' : '') + line;
-  showToast(`⚖️ 재판 메모에 추가: ${title}`);
+  // GCal 칩 클릭 시 해당 이벤트 메모 카드로 스크롤
+  const cards = document.querySelectorAll('.event-memo-card');
+  for (const card of cards) {
+    const badge = card.querySelector('.field-label-badge');
+    if (badge && badge.textContent.includes(title.slice(0,20))) {
+      card.scrollIntoView({ behavior:'smooth', block:'center' });
+      card.querySelector('textarea').focus();
+      showToast(`📝 메모 카드로 이동: ${title}`);
+      return;
+    }
+  }
+  showToast(`📅 ${title}`);
 }
 
 // ══════════════════════════════════════════
@@ -931,8 +921,8 @@ function updateSetupStepNums() {
 //  FORM FIELDS
 // ══════════════════════════════════════════
 
-const FIELDS = ['entryDate','arrivalTime','leaveTime','businessTrip','tripLocation',
-  'todayWork','courtMemo','callNotes','writtenDocs','pendingDocs','delegated','learned','etc'];
+const FIELDS = ['entryDate','arrivalTime','leaveTime',
+  'todayWork','eventMemos','callNotes','writtenDocs','pendingDocs','delegated','learned','etc'];
 
 function collectForm() {
   const data = {};
@@ -941,66 +931,118 @@ function collectForm() {
 }
 function fillForm(data) {
   FIELDS.forEach(id => { const el=document.getElementById(id); if(el && data[id]!==undefined) el.value=data[id]; });
-  // 칩 UI 동기화
-  syncTripChips();
-  // 위임 체크리스트 렌더링
   renderDelegatedList();
-  // 재판/회의 메모 표시 여부
-  updateCourtMemoVisibility();
+  renderEventMemos();
 }
 
-// ── 유형 토글 칩 ──
-function toggleTripChip(btn) {
-  btn.classList.toggle('active');
-  syncTripValue();
-  updateCourtMemoVisibility();
+// ── 이벤트 유형 분류 ──
+function classifyEvent(summary) {
+  const s = (summary || '').toLowerCase();
+  if (/법원|조정|변론|선고|기일|심문|재판/.test(s)) return 'court';
+  if (/회의|미팅|meeting|상담|협의/.test(s)) return 'meeting';
+  if (/출장|방문|외근/.test(s)) return 'trip';
+  return 'event';
 }
 
-function syncTripValue() {
-  const chips = document.querySelectorAll('.trip-chip.active');
-  const vals = Array.from(chips).map(c => c.dataset.val);
-  document.getElementById('businessTrip').value = vals.length ? vals.join(',') : '없음';
-}
-
-function syncTripChips() {
-  const val = document.getElementById('businessTrip').value || '없음';
-  const active = val === '없음' ? [] : val.split(',');
-  document.querySelectorAll('.trip-chip').forEach(c => {
-    c.classList.toggle('active', active.includes(c.dataset.val));
-  });
-}
-
-// ── 재판/회의 메모 조건부 표시 ──
-const COURT_PLACEHOLDER = '[사건번호] 2024가합1234 / ○○지방법원 제○부\n[기일 유형] 변론기일 / 조정기일 / 선고\n[판사 지시] \n[상대방 주장] \n[다음 기일] 2024-00-00 00:00';
-const MEETING_PLACEHOLDER = '[회의명] ○○ 회의\n[참석자] \n[안건] \n[결정사항] \n[후속 조치] ';
-
-function updateCourtMemoVisibility() {
-  const card = document.getElementById('courtMemoCard');
-  const label = document.getElementById('courtMemoLabel');
-  const icon = document.getElementById('courtMemoIcon');
-  const badge = document.getElementById('courtMemoBadge');
-  const ta = document.getElementById('courtMemo');
-  const vals = (document.getElementById('businessTrip').value || '없음').split(',');
-  const hasCourt = vals.includes('법원');
-  const hasMeeting = vals.includes('회의');
-  if (hasCourt && hasMeeting) {
-    card.style.display = '';
-    label.textContent = '재판/회의 메모'; icon.textContent = '⚖️'; badge.textContent = '법원+회의'; badge.className = 'field-label-badge blue';
-    if (!ta.value) ta.placeholder = COURT_PLACEHOLDER + '\n\n── 회의 ──\n' + MEETING_PLACEHOLDER;
-  } else if (hasCourt) {
-    card.style.display = '';
-    label.textContent = '재판 메모'; icon.textContent = '⚖️'; badge.textContent = '법원'; badge.className = 'field-label-badge blue';
-    if (!ta.value) ta.placeholder = COURT_PLACEHOLDER;
-  } else if (hasMeeting) {
-    card.style.display = '';
-    label.textContent = '회의 메모'; icon.textContent = '🤝'; badge.textContent = '회의'; badge.className = 'field-label-badge green';
-    if (!ta.value) ta.placeholder = MEETING_PLACEHOLDER;
-  } else if (ta.value && ta.value.trim()) {
-    card.style.display = '';
-    label.textContent = '재판/회의 메모'; icon.textContent = '📋'; badge.textContent = ''; badge.className = 'field-label-badge';
-  } else {
-    card.style.display = 'none';
+function memoConfig(type) {
+  switch(type) {
+    case 'court': return { icon:'⚖️', color:'blue', label:'재판 메모', placeholder:'[판사 지시]\n[상대방 주장]\n[다음 기일]' };
+    case 'meeting': return { icon:'🤝', color:'green', label:'회의 메모', placeholder:'[안건]\n[결정사항]\n[후속 조치]' };
+    case 'trip': return { icon:'🚗', color:'red', label:'출장 메모', placeholder:'[방문 목적]\n[결과]\n[후속 조치]' };
+    default: return { icon:'📅', color:'', label:'일정 메모', placeholder:'메모...' };
   }
+}
+
+function formatTime(dtStr) {
+  if (!dtStr) return '';
+  return new Date(dtStr).toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'});
+}
+
+function renderEventMemos() {
+  const container = document.getElementById('eventMemosContainer');
+  const saved = JSON.parse(document.getElementById('eventMemos').value || '[]');
+  const savedMap = {};
+  saved.forEach(s => { savedMap[s.id] = s.memo; });
+
+  let cards = '';
+
+  // GCal 이벤트 기반 카드
+  gcalEvents.forEach(ev => {
+    const type = classifyEvent(ev.summary);
+    const evId = ev.id || ev.summary;
+    const isAllDay = !!ev.start.date;
+    const timeStr = isAllDay ? '종일' : formatTime(ev.start.dateTime) + ' – ' + formatTime(ev.end.dateTime);
+    const location = ev.location || '';
+    const savedMemo = savedMap[evId] || '';
+    const { icon, color, label, placeholder } = memoConfig(type);
+
+    cards += `<div class="field-card full event-memo-card" data-event-id="${escapeHtml(evId)}" data-type="gcal">
+      <div class="field-label">
+        <span class="field-label-icon">${icon}</span>
+        <span class="field-label-text">${label}</span>
+        <span class="field-label-badge ${color}">${escapeHtml(ev.summary).slice(0,30)}</span>
+      </div>
+      <div style="padding:8px 16px 4px;font-size:12px;color:var(--ink3);line-height:1.7;">
+        <div>⏰ ${escapeHtml(timeStr)}${location ? ' | 📍 ' + escapeHtml(location) : ''}</div>
+        <div style="margin-top:2px;color:var(--ink2);">${escapeHtml(ev.summary)}</div>
+      </div>
+      <textarea class="field-textarea" placeholder="${placeholder}"
+        oninput="syncEventMemos()">${escapeHtml(savedMemo)}</textarea>
+    </div>`;
+  });
+
+  // 수동 추가된 메모 카드 (GCal에 없는 것)
+  saved.filter(s => s.manual).forEach(s => {
+    const { icon, color, label, placeholder } = memoConfig(s.type || 'event');
+    cards += `<div class="field-card full event-memo-card" data-event-id="${escapeHtml(s.id)}" data-type="manual">
+      <div class="field-label">
+        <span class="field-label-icon">${icon}</span>
+        <span class="field-label-text">${label}</span>
+        <span class="field-label-badge ${color}">${escapeHtml(s.title || '수동 메모')}</span>
+        <button onclick="removeManualMemo('${escapeHtml(s.id)}')" style="margin-left:4px;background:none;border:none;color:var(--ink3);cursor:pointer;font-size:14px;" title="삭제">×</button>
+      </div>
+      <div style="padding:8px 16px 4px;font-size:12px;color:var(--ink3);line-height:1.7;">
+        <div>${escapeHtml(s.title || '')}</div>
+      </div>
+      <textarea class="field-textarea" placeholder="${placeholder}"
+        oninput="syncEventMemos()">${escapeHtml(s.memo || '')}</textarea>
+    </div>`;
+  });
+
+  // 수동 추가 버튼
+  cards += `<div class="full"><button class="add-memo-btn" onclick="addManualMemo()">＋ 메모 추가</button></div>`;
+
+  container.innerHTML = cards;
+}
+
+function syncEventMemos() {
+  const cards = document.querySelectorAll('.event-memo-card');
+  const memos = Array.from(cards).map(card => {
+    const entry = { id: card.dataset.eventId, memo: card.querySelector('textarea').value };
+    if (card.dataset.type === 'manual') {
+      entry.manual = true;
+      entry.title = card.querySelector('.field-label-badge')?.textContent || '';
+      entry.type = classifyEvent(entry.title);
+    }
+    return entry;
+  });
+  document.getElementById('eventMemos').value = JSON.stringify(memos);
+}
+
+function addManualMemo() {
+  const title = prompt('일정/메모 제목 입력:');
+  if (!title || !title.trim()) return;
+  const saved = JSON.parse(document.getElementById('eventMemos').value || '[]');
+  saved.push({ id: 'manual_' + Date.now(), manual: true, title: title.trim(), type: classifyEvent(title), memo: '' });
+  document.getElementById('eventMemos').value = JSON.stringify(saved);
+  renderEventMemos();
+}
+
+function removeManualMemo(id) {
+  const saved = JSON.parse(document.getElementById('eventMemos').value || '[]');
+  const filtered = saved.filter(s => s.id !== id);
+  document.getElementById('eventMemos').value = JSON.stringify(filtered);
+  renderEventMemos();
 }
 
 // ── 위임 체크리스트 ──
@@ -1066,7 +1108,6 @@ async function loadEntryToForm(dateKey) {
       if (id==='leaveTime') { document.getElementById(id).value='18:00'; return; }
       const el=document.getElementById(id); if(el) el.value='';
     });
-    document.getElementById('businessTrip').value='없음';
   }
   updateTopbar();
   if (accessToken) syncGCalEvents(dateKey);
@@ -1091,10 +1132,9 @@ function exportEntry() {
   const data = collectForm();
   const lines = [
     `# 업무일지 — ${fmtDate(data.entryDate||todayKey())}`,``,
-    `- 출근: ${data.arrivalTime||'-'}  퇴근: ${data.leaveTime||'-'}`,
-    `- 출장: ${data.businessTrip||'없음'} ${data.tripLocation?'/ '+data.tripLocation:''}`,``,
+    `- 출근: ${data.arrivalTime||'-'}  퇴근: ${data.leaveTime||'-'}`,``,
     `## 오늘 한 일\n${data.todayWork||'-'}`,``,
-    `## 재판 메모\n${data.courtMemo||'-'}`,``,
+    `## 일정 메모\n${(()=>{ try { return JSON.parse(data.eventMemos||'[]').map(m=>(m.title?'['+m.title+'] ':'')+(m.memo||'-')).join('\n\n'); } catch { return '-'; } })()}`,``,
     `## 통화 내용\n${data.callNotes||'-'}`,``,
     `## 제출한 서면\n${data.writtenDocs||'-'}`,``,
     `## 제출 예정 서면\n${data.pendingDocs||'-'}`,``,
@@ -1170,7 +1210,7 @@ function renderRecentList() {
   const el = document.getElementById('recentList');
   if(!keys.length){el.innerHTML='<div style="padding:8px 12px;font-size:11px;color:rgba(242,237,228,0.3);">저장된 일지 없음</div>';return;}
   el.innerHTML=keys.map(k=>{
-    const e=entries[k]; const preview=(e.todayWork||e.courtMemo||'').slice(0,26);
+    const e=entries[k]; const preview=(e.todayWork||'').slice(0,26);
     return `<div class="entry-item${k===currentDate?' active':''}" onclick="calSelectDate('${k}')">
       <div class="entry-date-label">${k}</div>
       ${preview?`<div class="entry-preview">${escapeHtml(preview)}…</div>`:''}
@@ -1197,7 +1237,7 @@ function fullSearch(q) {
   countEl.textContent=`${hits.length}건`;
   if(!hits.length){results.innerHTML='<div class="empty-state"><div class="es-icon">🗂</div><p>검색 결과 없음</p></div>';return;}
   const hl=s=>{const escaped=escapeHtml(s||'');return escaped.replace(new RegExp(escapeHtml(q).replace(/[.*+?^${}()|[\]\\]/g,'\\$&'),'gi'),m=>`<mark>${m}</mark>`);};
-  const fLabels={todayWork:'오늘 한 일',courtMemo:'재판/회의 메모',callNotes:'통화',writtenDocs:'제출한 서면',pendingDocs:'제출 예정',delegated:'위임',learned:'배운 점',etc:'기타'};
+  const fLabels={todayWork:'오늘 한 일',eventMemos:'일정 메모',callNotes:'통화',writtenDocs:'제출한 서면',pendingDocs:'제출 예정',delegated:'위임',learned:'배운 점',etc:'기타'};
   results.innerHTML=hits.map(([k,e])=>{
     const tags=Object.entries(fLabels).filter(([f])=>(e[f]||'').toLowerCase().includes(lq)).map(([,l])=>`<span class="sr-field-tag">${l}</span>`).join('');
     const snippet=Object.entries(fLabels).map(([f,l])=>{
@@ -1219,11 +1259,11 @@ function fullSearch(q) {
 function renderStats() {
   const entries=getEntries(); const keys=Object.keys(entries);
   const thisMonth=todayKey().slice(0,7);
+  const memoCount = keys.filter(k=>{ try { return JSON.parse(entries[k].eventMemos||'[]').some(m=>m.memo&&m.memo.trim()); } catch { return false; } }).length;
   document.getElementById('statBar').innerHTML=`
     <div class="stat-card"><div class="stat-value">${keys.length}</div><div class="stat-label">총 일지 수</div></div>
     <div class="stat-card"><div class="stat-value">${keys.filter(k=>k.startsWith(thisMonth)).length}</div><div class="stat-label">이번 달</div></div>
-    <div class="stat-card"><div class="stat-value">${keys.filter(k=>(entries[k].courtMemo||'').trim()).length}</div><div class="stat-label">재판 기록</div></div>
-    <div class="stat-card"><div class="stat-value">${keys.filter(k=>entries[k].businessTrip&&entries[k].businessTrip!=='없음').length}</div><div class="stat-label">출장/출석</div></div>`;
+    <div class="stat-card"><div class="stat-value">${memoCount}</div><div class="stat-label">일정 메모 있음</div></div>`;
 }
 
 function renderListView() {
@@ -1232,12 +1272,12 @@ function renderListView() {
   if(!keys.length){el.innerHTML='<div class="empty-state"><div class="es-icon">📋</div><p>저장된 일지가 없습니다</p></div>';return;}
   el.innerHTML=`<div style="max-width:900px;">`+keys.map(k=>{
     const e=entries[k];
-    const fields=[e.todayWork&&{icon:'📝',label:'오늘 한 일',val:e.todayWork},e.courtMemo&&{icon:'⚖️',label:'재판 메모',val:e.courtMemo},e.writtenDocs&&{icon:'📄',label:'제출한 서면',val:e.writtenDocs}].filter(Boolean);
+    const memoSummary = (()=>{ try { return JSON.parse(e.eventMemos||'[]').filter(m=>m.memo&&m.memo.trim()).map(m=>(m.title?m.title+': ':'')+m.memo.slice(0,40)).join(' | '); } catch { return ''; } })();
+    const fields=[e.todayWork&&{icon:'📝',label:'오늘 한 일',val:e.todayWork},memoSummary&&{icon:'📅',label:'일정 메모',val:memoSummary},e.writtenDocs&&{icon:'📄',label:'제출한 서면',val:e.writtenDocs}].filter(Boolean);
     return `<div class="search-result-item" onclick="calSelectDate('${k}')">
       <div class="sr-date" style="display:flex;align-items:center;gap:10px;">
         ${fmtDate(k)}
         ${e.arrivalTime?`<span style="font-size:11px;color:var(--ink3);">출근 ${e.arrivalTime}</span>`:''}
-        ${e.businessTrip&&e.businessTrip!=='없음'?e.businessTrip.split(',').map(v=>`<span style="font-size:10.5px;padding:1px 8px;background:rgba(139,32,0,0.1);color:var(--accent);border-radius:20px;">${escapeHtml(v)}</span>`).join(' '):''}
       </div>
       <div class="sr-content" style="margin-top:7px;">
         ${fields.map(f=>`<div style="margin-bottom:4px;"><strong style="font-size:11px;color:var(--ink3)">${f.icon} ${f.label}</strong> — ${escapeHtml(f.val.slice(0,80))}${f.val.length>80?'…':''}</div>`).join('')}
@@ -1343,10 +1383,11 @@ function exportAllCSV() {
   const entries = getEntries();
   const keys = Object.keys(entries).sort();
   if (!keys.length) { showToast('내보낼 일지가 없습니다'); return; }
-  const headers = ['날짜','출근','퇴근','출장','출장장소','오늘한일','재판회의메모','통화내용','제출한서면','제출예정서면','직원위임','배운점','기타'];
-  const fieldKeys = ['entryDate','arrivalTime','leaveTime','businessTrip','tripLocation','todayWork','courtMemo','callNotes','writtenDocs','pendingDocs','delegated','learned','etc'];
+  const headers = ['날짜','출근','퇴근','오늘한일','일정메모','통화내용','제출한서면','제출예정서면','직원위임','배운점','기타'];
+  const fieldKeys = ['entryDate','arrivalTime','leaveTime','todayWork','eventMemos','callNotes','writtenDocs','pendingDocs','delegated','learned','etc'];
   const esc = v => { const s=String(v||''); return (s.includes(',')||s.includes('"')||s.includes('\n')) ? '"'+s.replace(/"/g,'""')+'"' : s; };
-  const lines = [headers.map(esc).join(','), ...keys.map(k => { const e=entries[k]; return fieldKeys.map(f=>esc(e[f])).join(','); })];
+  const fmtMemos = v => { try { return JSON.parse(v||'[]').map(m=>(m.title?'['+m.title+'] ':'')+m.memo).filter(Boolean).join('\n'); } catch { return v||''; } };
+  const lines = [headers.map(esc).join(','), ...keys.map(k => { const e=entries[k]; return fieldKeys.map(f=>f==='eventMemos'?esc(fmtMemos(e[f])):esc(e[f])).join(','); })];
   const blob = new Blob(['\uFEFF'+lines.join('\n')], {type:'text/csv;charset=utf-8'});
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a'); a.href=url; a.download=`업무일지_전체_${todayKey()}.csv`; a.click();
