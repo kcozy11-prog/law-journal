@@ -574,19 +574,11 @@
 <div class="toast" id="toast"></div>
 <div id="floatingTooltip"></div>
 
+<script src="firebase-config.js"></script>
 <script>
 // ══════════════════════════════════════════
 //  FIREBASE INIT
 // ══════════════════════════════════════════
-const firebaseConfig = {
-  apiKey: "REDACTED_KEY",
-  authDomain: "law-jounal.firebaseapp.com",
-  databaseURL: "https://law-jounal-default-rtdb.firebaseio.com",
-  projectId: "law-jounal",
-  storageBucket: "law-jounal.firebasestorage.app",
-  messagingSenderId: "1049097224898",
-  appId: "1:1049097224898:web:6104af07ba199a74b9f15b"
-};
 firebase.initializeApp(firebaseConfig);
 const fbAuth = firebase.auth();
 const fbDb   = firebase.database();
