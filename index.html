@@ -682,6 +682,7 @@ let currentDate  = todayKey();
 let calYear, calMonth;
 let gapiReady    = false;
 let accessToken  = null;
+let pendingTokenRestore = false;
 let gcalEvents   = [];
 
 // ══════════════════════════════════════════
@@ -693,8 +694,8 @@ function gapiLoaded() {
       await gapi.client.init({ discoveryDocs: [DISCOVERY] });
       gapiReady = true;
       console.log('GAPI 초기화 완료');
-      // 저장된 Google access token 복원
-      restoreGoogleToken();
+      // Firebase auth가 먼저 완료되어 대기 중이면 토큰 복원
+      if (pendingTokenRestore) restoreGoogleToken();
     } catch(e) { console.warn('GAPI init error', e); }
   });
 }
@@ -1508,6 +1509,7 @@ fbAuth.onAuthStateChanged(user => {
     bulkSyncFromFirebase();
     // 페이지 새로고침 시 저장된 Google token 복원 (GAPI 로드 후)
     if (gapiReady) restoreGoogleToken();
+    else pendingTokenRestore = true;
   } else {
     document.getElementById('firebaseAuthOverlay').style.display = 'flex';
     document.getElementById('fbLogoutBtn').style.display = 'none';
