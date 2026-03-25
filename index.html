@@ -1160,6 +1160,49 @@ function removeManualMemo(id) {
   renderEventMemos();
 }
 
+// ── 이전 날짜 미완료 위임 업무 이월 ──
+async function mergeDelegatedFromPrev(dateKey) {
+  const entries = getLocalEntries();
+  // dateKey 이전 날짜들을 최신순으로 정렬
+  const prevDates = Object.keys(entries)
+    .filter(d => d < dateKey)
+    .sort((a, b) => b.localeCompare(a));
+
+  // 이전 날짜들에서 미완료 위임 항목 수집
+  const carriedTexts = new Set();
+  const carriedItems = [];
+  for (const d of prevDates) {
+    const raw = entries[d]?.delegated || '';
+    if (!raw.trim()) continue;
+    const lines = raw.split('\n').filter(l => l.trim());
+    for (const line of lines) {
+      const done = line.startsWith('[x] ');
+      if (done) continue; // 완료된 항목은 이월하지 않음
+      const text = line.trim();
+      if (!carriedTexts.has(text)) {
+        carriedTexts.add(text);
+        carriedItems.push(text);
+      }
+    }
+  }
+  if (!carriedItems.length) return;
+
+  // 현재 날짜의 기존 항목과 병합 (중복 제거)
+  const currentItems = parseDelegatedItems();
+  const existingTexts = new Set(currentItems.map(i => i.text));
+  let added = false;
+  for (const text of carriedItems) {
+    if (!existingTexts.has(text)) {
+      currentItems.push({ text, done: false });
+      added = true;
+    }
+  }
+  if (added) {
+    serializeDelegatedItems(currentItems);
+    renderDelegatedList();
+  }
+}
+
 // ── 위임 체크리스트 ──
 function parseDelegatedItems() {
   const raw = document.getElementById('delegated').value || '';
@@ -1224,6 +1267,8 @@ async function loadEntryToForm(dateKey) {
       const el=document.getElementById(id); if(el) el.value='';
     });
   }
+  // 이전 날짜에서 미완료 위임 업무 이월 (기존 항목과 병합)
+  await mergeDelegatedFromPrev(dateKey);
   updateTopbar();
   if (accessToken) syncGCalEvents(dateKey);
 }
