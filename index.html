@@ -185,7 +185,7 @@
   .add-memo-btn { display:flex; align-items:center; justify-content:center; gap:6px; padding:12px; background:white; border:2px dashed var(--paper3); border-radius:10px; font-family:'Noto Sans KR',sans-serif; font-size:13px; color:var(--ink3); cursor:pointer; transition:all 0.15s; }
   .add-memo-btn:hover { border-color:var(--gold); color:var(--gold); }
 
-  .deleg-item { display:flex; align-items:center; gap:8px; padding:5px 0; border-bottom:1px solid var(--paper3); font-size:12.5px; }
+  .deleg-item { display:flex; align-items:center; gap:8px; padding:5px 0; border-bottom:1px solid var(--paper3); font-size:12.5px; transition:opacity 0.3s ease; }
   .deleg-item:last-child { border-bottom:none; }
   .deleg-item input[type="checkbox"] { width:15px; height:15px; cursor:pointer; accent-color:var(--green); flex-shrink:0; }
   .deleg-item .deleg-text { flex:1; color:var(--ink2); line-height:1.5; }
@@ -853,13 +853,11 @@ async function syncTasks() {
       return;
     }
 
-    // 오늘~7일 범위
+    // 오늘 날짜 (당일 마감만)
     const now = new Date();
-    const weekLater = new Date(now);
-    weekLater.setDate(weekLater.getDate() + 7);
-    const dueMax = weekLater.toISOString();
+    const todayDateStr = now.toISOString().slice(0, 10); // YYYY-MM-DD
 
-    // 모든 목록에서 미완료 할일 수집
+    // 모든 목록에서 당일 마감 할일 수집
     let allTasks = [];
     for (const list of taskLists) {
       const taskRes = await fetch(
@@ -869,13 +867,13 @@ async function syncTasks() {
       if (!taskRes.ok) continue;
       const taskData = await taskRes.json();
       const tasks = (taskData.items || []).filter(t =>
-        t.status !== 'completed' && (!t.due || t.due <= dueMax)
+        t.status !== 'completed' && t.due && t.due.slice(0, 10) === todayDateStr
       ).map(t => ({ ...t, _listTitle: list.title }));
       allTasks = allTasks.concat(tasks);
     }
 
     if (!allTasks.length) {
-      row.innerHTML = '<span class="gcal-empty">7일 내 할일이 없습니다.</span>';
+      row.innerHTML = '<span class="gcal-empty">오늘 마감 할일이 없습니다.</span>';
       return;
     }
 
@@ -945,7 +943,7 @@ function renderGCalStrip(events, dateKey) {
   const row  = document.getElementById('gcalEventsRow');
   const msg  = document.getElementById('gcalEmptyMsg');
   const title = document.getElementById('gcalStripTitle');
-  title.textContent = `📅 ${dateKey || currentDate} ~ 7일 일정 (Google Calendar)`;
+  title.textContent = `📅 ${dateKey || currentDate} 당일 일정 (Google Calendar)`;
 
   if (!events || !events.length) {
     row.innerHTML = '<span class="gcal-empty">일정이 없습니다.</span>';
@@ -1169,30 +1167,41 @@ async function mergeDelegatedFromPrev(dateKey) {
     .sort((a, b) => b.localeCompare(a));
 
   // 이전 날짜들에서 미완료 위임 항목 수집
-  const carriedTexts = new Set();
+  const carriedBaseTexts = new Set();
   const carriedItems = [];
   for (const d of prevDates) {
     const raw = entries[d]?.delegated || '';
     if (!raw.trim()) continue;
     const lines = raw.split('\n').filter(l => l.trim());
+    // 이월 날짜 표시: (이월: M/D)
+    const dateParts = d.split('-'); // YYYY-MM-DD
+    const dateLabel = dateParts.length === 3
+      ? `(이월: ${parseInt(dateParts[1])}/${parseInt(dateParts[2])})`
+      : '';
     for (const line of lines) {
       const done = line.startsWith('[x] ');
       if (done) continue; // 완료된 항목은 이월하지 않음
       const text = line.trim();
-      if (!carriedTexts.has(text)) {
-        carriedTexts.add(text);
-        carriedItems.push(text);
+      // 기존 이월 annotation 제거하여 base text 추출 (중복 annotation 방지)
+      const baseText = text.replace(/\s*\(이월: \d+\/\d+\)$/, '');
+      if (!carriedBaseTexts.has(baseText)) {
+        carriedBaseTexts.add(baseText);
+        const annotatedText = dateLabel ? `${baseText} ${dateLabel}` : baseText;
+        carriedItems.push(annotatedText);
       }
     }
   }
   if (!carriedItems.length) return;
 
-  // 현재 날짜의 기존 항목과 병합 (중복 제거)
+  // 현재 날짜의 기존 항목과 병합 (중복 제거, base text 기준)
   const currentItems = parseDelegatedItems();
-  const existingTexts = new Set(currentItems.map(i => i.text));
+  const existingBaseTexts = new Set(
+    currentItems.map(i => i.text.replace(/\s*\(이월: \d+\/\d+\)$/, ''))
+  );
   let added = false;
   for (const text of carriedItems) {
-    if (!existingTexts.has(text)) {
+    const baseText = text.replace(/\s*\(이월: \d+\/\d+\)$/, '');
+    if (!existingBaseTexts.has(baseText)) {
       currentItems.push({ text, done: false });
       added = true;
     }
@@ -1221,8 +1230,8 @@ function renderDelegatedList() {
   const list = document.getElementById('delegatedList');
   const items = parseDelegatedItems();
   if (!items.length) { list.innerHTML = '<div style="font-size:12px;color:var(--ink3);padding:4px 0;">위임한 업무가 없습니다.</div>'; return; }
-  list.innerHTML = items.map((item, i) => `<div class="deleg-item${item.done?' done':''}">
-    <input type="checkbox" ${item.done?'checked':''} onchange="toggleDelegatedItem(${i})">
+  list.innerHTML = items.map((item, i) => `<div class="deleg-item">
+    <input type="checkbox" ${item.done?'checked':''} onchange="toggleDelegatedItem(${i}, this)">
     <span class="deleg-text">${escapeHtml(item.text)}</span>
     <button class="deleg-del" onclick="removeDelegatedItem(${i})" title="삭제">×</button>
   </div>`).join('');
@@ -1239,11 +1248,27 @@ function addDelegatedItem() {
   input.value = '';
 }
 
-function toggleDelegatedItem(idx) {
+function toggleDelegatedItem(idx, checkbox) {
   const items = parseDelegatedItems();
-  if (items[idx]) items[idx].done = !items[idx].done;
-  serializeDelegatedItems(items);
-  renderDelegatedList();
+  if (!items[idx]) return;
+  // 체크 시 페이드아웃 후 삭제
+  const row = checkbox ? checkbox.closest('.deleg-item') : null;
+  const doDelete = () => {
+    const current = parseDelegatedItems();
+    current.splice(idx, 1);
+    serializeDelegatedItems(current);
+    renderDelegatedList();
+    // Firebase에도 즉시 반영
+    const data = collectForm();
+    const dateKey = data.entryDate || currentDate;
+    saveEntryData(data, dateKey);
+  };
+  if (row) {
+    row.style.opacity = '0';
+    setTimeout(doDelete, 300);
+  } else {
+    doDelete();
+  }
 }
 
 function removeDelegatedItem(idx) {
