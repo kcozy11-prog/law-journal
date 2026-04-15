@@ -82,6 +82,31 @@ export function carryForwardTomorrowTasks(entries = {}, targetDate) {
   return sortChecklistByDueDate(current);
 }
 
+export function carryForwardPendingDocs(entries = {}, targetDate) {
+  const current = parseJsonArray(entries[targetDate]?.pendingDocItems)
+    .map((item) => normalizeTaskItem(item, 'pending-doc'))
+    .filter(Boolean);
+  const existingTexts = new Set(current.map((item) => item.text));
+
+  const previousDates = Object.keys(entries)
+    .filter((dateKey) => dateKey < targetDate)
+    .sort((a, b) => b.localeCompare(a));
+
+  previousDates.forEach((dateKey) => {
+    const pendingDocs = parseJsonArray(entries[dateKey]?.pendingDocItems)
+      .map((item) => normalizeTaskItem(item, 'pending-doc'))
+      .filter(Boolean);
+
+    pendingDocs.forEach((item) => {
+      if (item.done || existingTexts.has(item.text)) return;
+      existingTexts.add(item.text);
+      current.push({ ...item, sourceDate: item.sourceDate || dateKey, done: false });
+    });
+  });
+
+  return sortChecklistByDueDate(current);
+}
+
 export function sortDelegatedTasks(items = []) {
   return [...items]
     .map((item) => normalizeTaskItem(item, 'delegated'))
@@ -168,6 +193,33 @@ export function filterLearnedItemsByTopic(entries = {}, topic = '') {
   return buildLearnedTopicGroups(entries).find((group) => group.topic === topic)?.items || [];
 }
 
+
+export function searchLearnedItems(entries = {}, query = '', topic = '') {
+  const normalizedQuery = (query || '').trim().toLowerCase();
+  const items = buildLearnedTopicGroups(entries).flatMap((group) => group.items);
+  return items.filter((item) => {
+    if (topic && item.topic !== topic) return false;
+    if (!normalizedQuery) return true;
+    return [item.topic, item.subtopic, item.title, item.content, item.date]
+      .filter(Boolean)
+      .some((value) => value.toLowerCase().includes(normalizedQuery));
+  }).sort((a, b) => {
+    if (a.date !== b.date) return b.date.localeCompare(a.date);
+    return a.title.localeCompare(b.title, 'ko');
+  });
+}
+
+export function buildLearnedArchiveStats(entries = {}, monthPrefix = '') {
+  const groups = buildLearnedTopicGroups(entries);
+  const items = groups.flatMap((group) => group.items);
+  return {
+    totalItems: items.length,
+    totalTopics: groups.length,
+    monthItems: monthPrefix ? items.filter((item) => item.date.startsWith(monthPrefix)).length : items.length,
+    topTopic: groups.slice().sort((a, b) => b.items.length - a.items.length)[0]?.topic || '',
+  };
+}
+
 if (typeof window !== 'undefined') {
   window.LawJournalLogic = {
     parseJsonArray,
@@ -176,10 +228,13 @@ if (typeof window !== 'undefined') {
     normalizeTaskItem,
     sortChecklistByDueDate,
     carryForwardTomorrowTasks,
+    carryForwardPendingDocs,
     sortDelegatedTasks,
     getLearnedItemsFromEntry,
     buildLearnedTopicGroups,
     buildLearnedTopicOptions,
     filterLearnedItemsByTopic,
+    searchLearnedItems,
+    buildLearnedArchiveStats,
   };
 }

@@ -206,6 +206,8 @@
   .learned-item-remove { margin-left:auto; background:none; border:none; color:var(--ink3); cursor:pointer; font-size:14px; }
   .learned-topic-group { max-width:980px; background:white; border:1px solid var(--paper3); border-radius:12px; padding:16px 18px; margin-bottom:14px; }
   .learned-topic-group h3 { font-family:'Noto Serif KR',serif; font-size:17px; margin-bottom:12px; color:var(--ink); }
+  .inline-action-btn { background:none; border:none; color:var(--ink3); cursor:pointer; font-size:13px; padding:0 4px; }
+  .inline-action-btn:hover { color:var(--ink); }
 
   #floatingTooltip { display:none; position:fixed; background:var(--ink); color:var(--paper2); padding:10px 14px; border-radius:8px; font-size:11.5px; line-height:1.7; white-space:pre-wrap; min-width:220px; max-width:340px; z-index:9999; box-shadow:0 4px 16px rgba(0,0,0,0.25); pointer-events:none; word-break:keep-all; }
   #floatingTooltip::after { content:''; position:absolute; bottom:100%; left:20px; border:6px solid transparent; border-bottom-color:var(--ink); }
@@ -498,8 +500,15 @@
           <textarea class="field-textarea short" id="writtenDocs" placeholder="[서면 종류] 준비서면 / 답변서 / 항소이유서&#10;[사건번호] 2024가합1234&#10;[제출처] ○○법원 / 전자소송&#10;[접수 확인] 완료 / 미확인"></textarea>
         </div>
         <div class="field-card">
-          <div class="field-label"><span class="field-label-icon">📮</span><span class="field-label-text">제출 예정 서면</span><span class="field-label-badge red">D-day</span></div>
-          <textarea class="field-textarea short" id="pendingDocs" placeholder="[서면명] 준비서면 / 의견서&#10;[제출 기한] 2024-00-00&#10;[진행도] 초안 작성 중 / 검토 대기&#10;[담당자] 본인 / ○○ 변호사"></textarea>
+          <div class="field-label"><span class="field-label-icon">📮</span><span class="field-label-text">제출 예정 서면</span><span class="field-label-badge red">체크 전까지 이월</span></div>
+          <div id="pendingDocsList" class="checklist-list" style="padding:8px 16px 4px;"></div>
+          <div class="task-input-row" style="display:flex;gap:6px;padding:4px 16px 10px;">
+            <input type="text" id="pendingDocsInput" placeholder="제출 예정 서면 입력 후 Enter" style="flex:1;padding:8px 12px;border:1px solid var(--paper3);border-radius:6px;font-family:'Noto Sans KR',sans-serif;font-size:12.5px;color:var(--ink);outline:none;" onkeydown="if(event.key==='Enter'){addPendingDocItem();event.preventDefault();}">
+            <input type="date" id="pendingDocsDueDate" style="padding:8px 10px;border:1px solid var(--paper3);border-radius:6px;font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--ink);outline:none;">
+            <button onclick="addPendingDocItem()" style="padding:8px 14px;background:var(--ink);color:var(--paper2);border:none;border-radius:6px;font-size:12px;cursor:pointer;font-family:'Noto Sans KR',sans-serif;white-space:nowrap;">+ 추가</button>
+          </div>
+          <textarea class="field-textarea short" id="pendingDocs" style="display:none;"></textarea>
+          <textarea class="field-textarea short" id="pendingDocItems" style="display:none;"></textarea>
         </div>
         <div class="field-card">
           <div class="field-label"><span class="field-label-icon">👥</span><span class="field-label-text">직원에게 위임한 일</span><span class="field-label-badge">완료 시 삭제</span></div>
@@ -580,11 +589,13 @@
     <!-- ── LEARNED VIEW ── -->
     <div class="view content" id="view-learned">
       <div class="section-title">배운 점 모아보기 <span id="learnedArchiveCount"></span></div>
-      <div style="max-width:980px;margin-bottom:18px;display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
+      <div style="max-width:980px;margin-bottom:14px;display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
+        <input type="text" id="learnedArchiveSearch" placeholder="제목, 내용, 세부 분류 검색" style="flex:1;min-width:240px;padding:10px 14px;border:1px solid var(--paper3);border-radius:8px;background:white;font-family:'Noto Sans KR',sans-serif;font-size:13px;color:var(--ink);outline:none;" oninput="renderLearnedArchive()">
         <select id="learnedArchiveTopicFilter" style="padding:10px 14px;border:1px solid var(--paper3);border-radius:8px;background:white;font-family:'Noto Sans KR',sans-serif;font-size:13px;color:var(--ink);outline:none;min-width:220px;" onchange="renderLearnedArchive()">
           <option value="">전체 주제</option>
         </select>
       </div>
+      <div class="stats-bar" id="learnedArchiveStats"></div>
       <div id="learnedArchiveView"></div>
     </div>
 
@@ -1125,7 +1136,7 @@ function updateSetupStepNums() {
 // ══════════════════════════════════════════
 
 const FIELDS = ['entryDate','arrivalTime','leaveTime',
-  'todayTasks','todayWork','eventMemos','callNotes','writtenDocs','pendingDocs','delegated','delegatedItems','learned','learnedItems','tomorrowTasks','etc'];
+  'todayTasks','todayWork','eventMemos','callNotes','writtenDocs','pendingDocs','pendingDocItems','delegated','delegatedItems','learned','learnedItems','tomorrowTasks','etc'];
 
 function collectForm() {
   const data = {};
@@ -1136,6 +1147,7 @@ function fillForm(data) {
   FIELDS.forEach(id => { const el=document.getElementById(id); if(el && data[id]!==undefined) el.value=data[id]; });
   renderTodayTasksList();
   renderTomorrowTasksList();
+  renderPendingDocsList();
   renderDelegatedList();
   renderLearnedItemsList();
   populateLearnedTopicOptions();
@@ -1277,6 +1289,11 @@ function syncTomorrowTasksField(items) {
   document.getElementById('tomorrowTasks').value = JSON.stringify(items);
 }
 
+function syncPendingDocsField(items) {
+  document.getElementById('pendingDocItems').value = JSON.stringify(items);
+  document.getElementById('pendingDocs').value = items.map(item => `${item.text}${item.dueDate ? ` (${item.dueDate})` : ''}`).join('\n');
+}
+
 function syncDelegatedFields(items) {
   document.getElementById('delegatedItems').value = JSON.stringify(items);
   document.getElementById('delegated').value = items.map(item => {
@@ -1303,6 +1320,13 @@ function getTomorrowTaskItems() {
   return parseStructuredItems('tomorrowTasks');
 }
 
+function getPendingDocItems() {
+  const logic = getLogic();
+  const parsed = parseStructuredItems('pendingDocItems', 'pendingDocs');
+  const normalized = parsed.map(item => logic.normalizeTaskItem ? logic.normalizeTaskItem(item, 'pending-doc') : item).filter(Boolean);
+  return logic.sortChecklistByDueDate ? logic.sortChecklistByDueDate(normalized) : normalized;
+}
+
 function getDelegatedItems() {
   const logic = getLogic();
   const parsed = parseStructuredItems('delegatedItems', 'delegated');
@@ -1327,10 +1351,12 @@ function buildChecklistRow(item, index, options) {
   const overdue = item.dueDate && new Date(item.dueDate + 'T00:00:00') < new Date(todayKey() + 'T00:00:00');
   if (overdue) badges.push('<span class="task-badge overdue">기한 지남</span>');
   if (item.sourceDate) badges.push(`<span class="task-badge">이월 ${escapeHtml(item.sourceDate.slice(5))}</span>`);
+  const editButton = options.editHandler ? `<button class="inline-action-btn" onclick="${options.editHandler}(${index})" title="수정">✎</button>` : '';
   return `<div class="${options.rowClass} checklist-item${item.done?' done':''}">
     <input type="checkbox" ${item.done?'checked':''} onchange="${options.toggleHandler}(${index}, this)">
     <span class="${options.textClass || 'checklist-text'}">${escapeHtml(item.text)}</span>
     <div class="task-meta">${badges.join('')}</div>
+    ${editButton}
     <button class="${options.deleteClass || 'checklist-del'}" onclick="${options.removeHandler}(${index})" title="삭제">×</button>
   </div>`;
 }
@@ -1367,6 +1393,21 @@ function renderTomorrowTasksList() {
   })).join('');
 }
 
+function renderPendingDocsList() {
+  const list = document.getElementById('pendingDocsList');
+  const items = getPendingDocItems();
+  syncPendingDocsField(items);
+  if (!items.length) {
+    list.innerHTML = '<div style="font-size:12px;color:var(--ink3);padding:4px 0;">제출 예정 서면이 없습니다.</div>';
+    return;
+  }
+  list.innerHTML = items.map((item, index) => buildChecklistRow(item, index, {
+    rowClass: 'checklist-item',
+    toggleHandler: 'togglePendingDocItem',
+    removeHandler: 'removePendingDocItem',
+  })).join('');
+}
+
 async function mergeTodayTasksFromPrevious(dateKey) {
   const logic = getLogic();
   const entries = getLocalEntries();
@@ -1374,6 +1415,15 @@ async function mergeTodayTasksFromPrevious(dateKey) {
   const merged = logic.carryForwardTomorrowTasks ? logic.carryForwardTomorrowTasks(entries, dateKey) : getTodayTaskItems();
   syncTodayTasksField(merged);
   renderTodayTasksList();
+}
+
+async function mergePendingDocsFromPrevious(dateKey) {
+  const logic = getLogic();
+  const entries = getLocalEntries();
+  entries[dateKey] = { ...(entries[dateKey] || {}), pendingDocItems: document.getElementById('pendingDocItems').value };
+  const merged = logic.carryForwardPendingDocs ? logic.carryForwardPendingDocs(entries, dateKey) : getPendingDocItems();
+  syncPendingDocsField(merged);
+  renderPendingDocsList();
 }
 
 function addTodayTask() {
@@ -1404,6 +1454,53 @@ function addTomorrowTask() {
   document.getElementById('tomorrowTasksDueDate').value = '';
 }
 
+function addPendingDocItem() {
+  const logic = getLogic();
+  const input = document.getElementById('pendingDocsInput');
+  const dueDate = document.getElementById('pendingDocsDueDate').value;
+  const text = input.value.trim();
+  if (!text) return;
+  const items = getPendingDocItems();
+  items.push(logic.normalizeTaskItem ? logic.normalizeTaskItem({ text, done: false, dueDate }, 'pending-doc') : { text, done:false, dueDate });
+  syncPendingDocsField(items);
+  renderPendingDocsList();
+  input.value = '';
+  document.getElementById('pendingDocsDueDate').value = '';
+}
+
+let editingDelegatedId = null;
+
+function addDelegatedItem() {
+  const logic = getLogic();
+  const assignee = document.getElementById('delegatedAssignee').value.trim();
+  const input = document.getElementById('delegatedInput');
+  const dueDate = document.getElementById('delegatedDueDate').value;
+  const text = input.value.trim();
+  if (!text) return;
+  const items = getDelegatedItems();
+  const nextItem = logic.normalizeTaskItem ? logic.normalizeTaskItem({ id: editingDelegatedId, assignee, text, dueDate, done: false }, 'delegated') : { id: editingDelegatedId, assignee, text, dueDate, done:false };
+  const existingIndex = items.findIndex(item => item.id === editingDelegatedId);
+  if (existingIndex >= 0) items[existingIndex] = nextItem;
+  else items.push(nextItem);
+  editingDelegatedId = null;
+  syncDelegatedFields(items);
+  renderDelegatedList();
+  document.getElementById('delegatedAssignee').value = '';
+  input.value = '';
+  document.getElementById('delegatedDueDate').value = '';
+}
+
+function editDelegatedItem(idx) {
+  const items = getDelegatedItems();
+  const item = items[idx];
+  if (!item) return;
+  editingDelegatedId = item.id;
+  document.getElementById('delegatedAssignee').value = item.assignee || '';
+  document.getElementById('delegatedInput').value = item.text || '';
+  document.getElementById('delegatedDueDate').value = item.dueDate || '';
+  document.getElementById('delegatedInput').focus();
+}
+
 function removeTodayTask(idx) {
   const items = getTodayTaskItems();
   items.splice(idx, 1);
@@ -1416,6 +1513,13 @@ function removeTomorrowTask(idx) {
   items.splice(idx, 1);
   syncTomorrowTasksField(items);
   renderTomorrowTasksList();
+}
+
+function removePendingDocItem(idx) {
+  const items = getPendingDocItems();
+  items.splice(idx, 1);
+  syncPendingDocsField(items);
+  renderPendingDocsList();
 }
 
 function toggleTodayTask(idx, checkbox) {
@@ -1440,6 +1544,17 @@ function toggleTomorrowTask(idx, checkbox) {
   }
 }
 
+function togglePendingDocItem(idx, checkbox) {
+  const row = checkbox ? checkbox.closest('.checklist-item') : null;
+  const doDelete = () => removePendingDocItem(idx);
+  if (row) {
+    row.style.opacity = '0';
+    setTimeout(doDelete, 220);
+  } else {
+    doDelete();
+  }
+}
+
 function renderDelegatedList() {
   const list = document.getElementById('delegatedList');
   const items = getDelegatedItems();
@@ -1454,23 +1569,8 @@ function renderDelegatedList() {
     deleteClass: 'deleg-del',
     toggleHandler: 'toggleDelegatedItem',
     removeHandler: 'removeDelegatedItem',
+    editHandler: 'editDelegatedItem',
   })).join('');
-}
-
-function addDelegatedItem() {
-  const logic = getLogic();
-  const assignee = document.getElementById('delegatedAssignee').value.trim();
-  const input = document.getElementById('delegatedInput');
-  const dueDate = document.getElementById('delegatedDueDate').value;
-  const text = input.value.trim();
-  if (!text) return;
-  const items = getDelegatedItems();
-  items.push(logic.normalizeTaskItem ? logic.normalizeTaskItem({ assignee, text, dueDate, done: false }, 'delegated') : { assignee, text, dueDate, done:false });
-  syncDelegatedFields(items);
-  renderDelegatedList();
-  document.getElementById('delegatedAssignee').value = '';
-  input.value = '';
-  document.getElementById('delegatedDueDate').value = '';
 }
 
 function toggleDelegatedItem(idx, checkbox) {
@@ -1597,13 +1697,28 @@ function renderLearnedArchive() {
   const dateKey = document.getElementById('entryDate')?.value || currentDate;
   entries[dateKey] = { ...(entries[dateKey] || {}), learnedItems: document.getElementById('learnedItems')?.value || '', learned: document.getElementById('learned')?.value || '' };
   const logic = getLogic();
-  const allGroups = logic.buildLearnedTopicGroups ? logic.buildLearnedTopicGroups(entries) : [];
   const selectedTopic = document.getElementById('learnedArchiveTopicFilter').value;
-  const groups = selectedTopic ? allGroups.filter(group => group.topic === selectedTopic) : allGroups;
-  document.getElementById('learnedArchiveCount').textContent = `${groups.reduce((sum, group) => sum + group.items.length, 0)}건`;
+  const query = document.getElementById('learnedArchiveSearch').value.trim();
+  const allGroups = logic.buildLearnedTopicGroups ? logic.buildLearnedTopicGroups(entries) : [];
+  const searchedItems = logic.searchLearnedItems ? logic.searchLearnedItems(entries, query, selectedTopic) : [];
+  const groups = query
+    ? Array.from(searchedItems.reduce((map, item) => {
+        if (!map.has(item.topic)) map.set(item.topic, []);
+        map.get(item.topic).push(item);
+        return map;
+      }, new Map()).entries()).map(([topic, items]) => ({ topic, items }))
+    : (selectedTopic ? allGroups.filter(group => group.topic === selectedTopic) : allGroups);
+  const stats = logic.buildLearnedArchiveStats ? logic.buildLearnedArchiveStats(entries, todayKey().slice(0,7)) : { totalItems: 0, totalTopics: 0, monthItems: 0, topTopic: '' };
+  const visibleCount = groups.reduce((sum, group) => sum + group.items.length, 0);
+  document.getElementById('learnedArchiveCount').textContent = `${visibleCount}건`;
+  document.getElementById('learnedArchiveStats').innerHTML = `
+    <div class="stat-card"><div class="stat-value">${stats.totalItems}</div><div class="stat-label">전체 배운 점</div></div>
+    <div class="stat-card"><div class="stat-value">${stats.totalTopics}</div><div class="stat-label">주제 수</div></div>
+    <div class="stat-card"><div class="stat-value">${stats.monthItems}</div><div class="stat-label">이번 달 기록</div></div>
+    <div class="stat-card"><div class="stat-value">${escapeHtml(stats.topTopic || '-')}</div><div class="stat-label">가장 많은 주제</div></div>`;
   const el = document.getElementById('learnedArchiveView');
   if (!groups.length) {
-    el.innerHTML = '<div class="empty-state"><div class="es-icon">💡</div><p>저장된 배운 점이 없습니다.</p></div>';
+    el.innerHTML = `<div class="empty-state"><div class="es-icon">💡</div><p>${query ? '검색 결과가 없습니다.' : '저장된 배운 점이 없습니다.'}</p></div>`;
     return;
   }
   el.innerHTML = groups.map(group => `<div class="learned-topic-group">
@@ -1634,11 +1749,13 @@ async function loadEntryToForm(dateKey) {
     });
     renderTodayTasksList();
     renderTomorrowTasksList();
+    renderPendingDocsList();
     renderDelegatedList();
     renderLearnedItemsList();
     populateLearnedTopicOptions();
   }
   await mergeTodayTasksFromPrevious(dateKey);
+  await mergePendingDocsFromPrevious(dateKey);
   updateTopbar();
   updateLearnedTopicHints();
   populateLearnedTopicOptions();
@@ -1794,16 +1911,24 @@ function newEntry() {
 // ══════════════════════════════════════════
 function exportEntry() {
   const data = collectForm();
+  const logic = getLogic();
+  const formatChecklist = (raw) => {
+    const items = logic.parseJsonArray ? logic.parseJsonArray(raw || '[]') : [];
+    if (!items.length) return '-';
+    return items.map(item => `- ${item.text}${item.dueDate ? ` (${item.dueDate})` : ''}${item.assignee ? ` / ${item.assignee}` : ''}`).join('\n');
+  };
   const lines = [
     `# 업무일지 — ${fmtDate(data.entryDate||todayKey())}`,``,
     `- 출근: ${data.arrivalTime||'-'}  퇴근: ${data.leaveTime||'-'}`,``,
+    `## 오늘 할 일\n${formatChecklist(data.todayTasks)}`,``,
     `## 오늘 한 일\n${data.todayWork||'-'}`,``,
     `## 일정 메모\n${(()=>{ try { return JSON.parse(data.eventMemos||'[]').map(m=>(m.title?'['+m.title+'] ':'')+(m.memo||'-')).join('\n\n'); } catch { return '-'; } })()}`,``,
     `## 통화 내용\n${data.callNotes||'-'}`,``,
     `## 제출한 서면\n${data.writtenDocs||'-'}`,``,
-    `## 제출 예정 서면\n${data.pendingDocs||'-'}`,``,
-    `## 직원 위임\n${data.delegated||'-'}`,``,
+    `## 제출 예정 서면\n${formatChecklist(data.pendingDocItems)}`,``,
+    `## 직원 위임\n${formatChecklist(data.delegatedItems)}`,``,
     `## 오늘 배운 점\n${data.learned||'-'}`,``,
+    `## 내일 할 일\n${formatChecklist(data.tomorrowTasks)}`,``,
     `## 기타\n${data.etc||'-'}`,
   ].join('\n');
   const blob = new Blob([lines],{type:'text/plain;charset=utf-8'});
@@ -1906,7 +2031,7 @@ function fullSearch(q) {
   countEl.textContent=`${hits.length}건`;
   if(!hits.length){results.innerHTML='<div class="empty-state"><div class="es-icon">🗂</div><p>검색 결과 없음</p></div>';return;}
   const hl=s=>{const escaped=escapeHtml(s||'');return escaped.replace(new RegExp(escapeHtml(q).replace(/[.*+?^${}()|[\]\\]/g,'\\$&'),'gi'),m=>`<mark>${m}</mark>`);};
-  const fLabels={todayTasks:'오늘 할 일',todayWork:'오늘 한 일',eventMemos:'일정 메모',callNotes:'통화',writtenDocs:'제출한 서면',pendingDocs:'제출 예정',delegated:'위임',learned:'배운 점',learnedItems:'배운 점',tomorrowTasks:'내일 할 일',etc:'기타'};
+  const fLabels={todayTasks:'오늘 할 일',todayWork:'오늘 한 일',eventMemos:'일정 메모',callNotes:'통화',writtenDocs:'제출한 서면',pendingDocs:'제출 예정',pendingDocItems:'제출 예정',delegated:'위임',delegatedItems:'위임',learned:'배운 점',learnedItems:'배운 점',tomorrowTasks:'내일 할 일',etc:'기타'};
   results.innerHTML=hits.map(([k,e])=>{
     const tags=Object.entries(fLabels).filter(([f])=>(e[f]||'').toLowerCase().includes(lq)).map(([,l])=>`<span class="sr-field-tag">${l}</span>`).join('');
     const snippet=Object.entries(fLabels).map(([f,l])=>{
@@ -2056,11 +2181,26 @@ function exportAllCSV() {
   const entries = getEntries();
   const keys = Object.keys(entries).sort();
   if (!keys.length) { showToast('내보낼 일지가 없습니다'); return; }
-  const headers = ['날짜','출근','퇴근','오늘한일','일정메모','통화내용','제출한서면','제출예정서면','직원위임','배운점','기타'];
-  const fieldKeys = ['entryDate','arrivalTime','leaveTime','todayWork','eventMemos','callNotes','writtenDocs','pendingDocs','delegated','learned','etc'];
+  const logic = getLogic();
+  const headers = ['날짜','출근','퇴근','오늘할일','오늘한일','일정메모','통화내용','제출한서면','제출예정서면','직원위임','배운점','내일할일','기타'];
+  const fieldKeys = ['entryDate','arrivalTime','leaveTime','todayTasks','todayWork','eventMemos','callNotes','writtenDocs','pendingDocItems','delegatedItems','learned','tomorrowTasks','etc'];
   const esc = v => { const s=String(v||''); return (s.includes(',')||s.includes('"')||s.includes('\n')) ? '"'+s.replace(/"/g,'""')+'"' : s; };
   const fmtMemos = v => { try { return JSON.parse(v||'[]').map(m=>(m.title?'['+m.title+'] ':'')+m.memo).filter(Boolean).join('\n'); } catch { return v||''; } };
-  const lines = [headers.map(esc).join(','), ...keys.map(k => { const e=entries[k]; return fieldKeys.map(f=>f==='eventMemos'?esc(fmtMemos(e[f])):esc(e[f])).join(','); })];
+  const fmtChecklist = v => {
+    const items = logic.parseJsonArray ? logic.parseJsonArray(v||'[]') : [];
+    return items.map(item => `${item.text}${item.dueDate ? ' ('+item.dueDate+')' : ''}${item.assignee ? ' / '+item.assignee : ''}`).join('\n');
+  };
+  const lines = [
+    headers.map(esc).join(','),
+    ...keys.map(k => {
+      const e=entries[k];
+      return fieldKeys.map(f =>
+        f==='eventMemos' ? esc(fmtMemos(e[f])) :
+        (f==='todayTasks'||f==='pendingDocItems'||f==='delegatedItems'||f==='tomorrowTasks') ? esc(fmtChecklist(e[f])) :
+        esc(e[f])
+      ).join(',');
+    })
+  ];
   const blob = new Blob(['\uFEFF'+lines.join('\n')], {type:'text/csv;charset=utf-8'});
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a'); a.href=url; a.download=`업무일지_전체_${todayKey()}.csv`; a.click();
@@ -2077,6 +2217,7 @@ function initApp() {
   document.getElementById('arrivalTime').value='09:00';
   document.getElementById('leaveTime').value='18:00';
   document.getElementById('learnedTopic').addEventListener('change', updateLearnedTopicHints);
+  document.getElementById('learnedArchiveSearch')?.addEventListener('input', renderLearnedArchive);
   loadEntryToForm(todayKey());
   renderCalendarMini(); renderRecentList(); updateTopbar(); renderStats(); populateLearnedTopicOptions(); renderLearnedArchive();
   updateSetupStepNums();
