@@ -186,13 +186,26 @@
   .add-memo-btn { display:flex; align-items:center; justify-content:center; gap:6px; padding:12px; background:white; border:2px dashed var(--paper3); border-radius:10px; font-family:'Noto Sans KR',sans-serif; font-size:13px; color:var(--ink3); cursor:pointer; transition:all 0.15s; }
   .add-memo-btn:hover { border-color:var(--gold); color:var(--gold); }
 
-  .deleg-item { display:flex; align-items:center; gap:8px; padding:5px 0; border-bottom:1px solid var(--paper3); font-size:12.5px; transition:opacity 0.3s ease; }
-  .deleg-item:last-child { border-bottom:none; }
-  .deleg-item input[type="checkbox"] { width:15px; height:15px; cursor:pointer; accent-color:var(--green); flex-shrink:0; }
-  .deleg-item .deleg-text { flex:1; color:var(--ink2); line-height:1.5; }
-  .deleg-item.done .deleg-text { text-decoration:line-through; color:var(--ink3); opacity:0.6; }
-  .deleg-item .deleg-del { background:none; border:none; color:var(--ink3); cursor:pointer; font-size:14px; padding:0 4px; opacity:0.4; }
-  .deleg-item .deleg-del:hover { opacity:1; color:var(--accent); }
+  .deleg-item, .checklist-item { display:flex; align-items:center; gap:8px; padding:7px 0; border-bottom:1px solid var(--paper3); font-size:12.5px; transition:opacity 0.3s ease; }
+  .deleg-item:last-child, .checklist-item:last-child { border-bottom:none; }
+  .deleg-item input[type="checkbox"], .checklist-item input[type="checkbox"] { width:15px; height:15px; cursor:pointer; accent-color:var(--green); flex-shrink:0; }
+  .deleg-item .deleg-text, .checklist-item .checklist-text { flex:1; color:var(--ink2); line-height:1.5; }
+  .deleg-item.done .deleg-text, .checklist-item.done .checklist-text { text-decoration:line-through; color:var(--ink3); opacity:0.6; }
+  .deleg-item .deleg-del, .checklist-item .checklist-del { background:none; border:none; color:var(--ink3); cursor:pointer; font-size:14px; padding:0 4px; opacity:0.4; }
+  .deleg-item .deleg-del:hover, .checklist-item .checklist-del:hover { opacity:1; color:var(--accent); }
+  .task-meta { display:flex; align-items:center; gap:6px; flex-wrap:wrap; margin-left:auto; }
+  .task-badge { font-size:10.5px; padding:2px 8px; border-radius:999px; background:var(--paper2); color:var(--ink3); }
+  .task-badge.overdue { background:rgba(139,32,0,0.12); color:var(--accent); }
+  .task-badge.due { background:rgba(26,58,92,0.08); color:var(--blue); }
+  .task-badge.assignee { background:rgba(45,90,39,0.1); color:var(--green); }
+  .learned-item-list, .learned-hint-list { display:flex; flex-direction:column; gap:8px; }
+  .learned-item-card { border:1px solid var(--paper3); border-radius:8px; background:white; padding:10px 12px; }
+  .learned-item-header { display:flex; align-items:center; gap:6px; flex-wrap:wrap; margin-bottom:6px; }
+  .learned-item-title { font-size:13px; font-weight:600; color:var(--ink); }
+  .learned-item-content { font-size:12px; color:var(--ink2); line-height:1.7; white-space:pre-wrap; }
+  .learned-item-remove { margin-left:auto; background:none; border:none; color:var(--ink3); cursor:pointer; font-size:14px; }
+  .learned-topic-group { max-width:980px; background:white; border:1px solid var(--paper3); border-radius:12px; padding:16px 18px; margin-bottom:14px; }
+  .learned-topic-group h3 { font-family:'Noto Serif KR',serif; font-size:17px; margin-bottom:12px; color:var(--ink); }
 
   #floatingTooltip { display:none; position:fixed; background:var(--ink); color:var(--paper2); padding:10px 14px; border-radius:8px; font-size:11.5px; line-height:1.7; white-space:pre-wrap; min-width:220px; max-width:340px; z-index:9999; box-shadow:0 4px 16px rgba(0,0,0,0.25); pointer-events:none; word-break:keep-all; }
   #floatingTooltip::after { content:''; position:absolute; bottom:100%; left:20px; border:6px solid transparent; border-bottom-color:var(--ink); }
@@ -390,6 +403,7 @@
       <button class="nav-btn active" onclick="switchView('write')" id="nav-write"><span class="icon">✏️</span> 오늘 일지 작성</button>
       <button class="nav-btn" onclick="switchView('search')" id="nav-search"><span class="icon">🔍</span> 전체 검색</button>
       <button class="nav-btn" onclick="switchView('list')" id="nav-list"><span class="icon">📋</span> 일지 목록</button>
+      <button class="nav-btn" onclick="switchView('learned')" id="nav-learned"><span class="icon">💡</span> 배운 점 모아보기</button>
       <button class="nav-btn" onclick="switchView('setup')" id="nav-setup"><span class="icon">⚙️</span> GCal 설정</button>
       <div class="nav-section-label" style="margin-top:10px;">최근 일지</div>
       <div class="entries-list" id="recentList"></div>
@@ -462,6 +476,16 @@
       <!-- Journal fields -->
       <div class="journal-grid">
         <div class="field-card full">
+          <div class="field-label"><span class="field-label-icon">☑️</span><span class="field-label-text">오늘 할 일</span><span class="field-label-badge blue">체크 전까지 유지</span></div>
+          <div id="todayTasksList" class="checklist-list" style="padding:8px 16px 4px;"></div>
+          <div class="task-input-row" style="display:flex;gap:6px;padding:4px 16px 10px;">
+            <input type="text" id="todayTasksInput" placeholder="오늘 처리할 업무 입력 후 Enter" style="flex:1;padding:8px 12px;border:1px solid var(--paper3);border-radius:6px;font-family:'Noto Sans KR',sans-serif;font-size:12.5px;color:var(--ink);outline:none;" onkeydown="if(event.key==='Enter'){addTodayTask();event.preventDefault();}">
+            <input type="date" id="todayTasksDueDate" style="padding:8px 10px;border:1px solid var(--paper3);border-radius:6px;font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--ink);outline:none;">
+            <button onclick="addTodayTask()" style="padding:8px 14px;background:var(--ink);color:var(--paper2);border:none;border-radius:6px;font-size:12px;cursor:pointer;font-family:'Noto Sans KR',sans-serif;white-space:nowrap;">+ 추가</button>
+          </div>
+          <textarea class="field-textarea short" id="todayTasks" style="display:none;"></textarea>
+        </div>
+        <div class="field-card full">
           <div class="field-label"><span class="field-label-icon">📝</span><span class="field-label-text">오늘 한 일</span></div>
           <textarea class="field-textarea tall" id="todayWork" placeholder="[사건별 진행]&#10;- 2024가합1234 / 준비서면 초안 작성&#10;[서면 작성·검토]&#10;- ○○ 답변서 검토 완료&#10;[회의·상담]&#10;- 14:00 의뢰인 미팅 (○○ 건)&#10;[행정 업무]&#10;- 사건 수임계약서 정리"></textarea>
         </div>
@@ -478,23 +502,56 @@
           <textarea class="field-textarea short" id="pendingDocs" placeholder="[서면명] 준비서면 / 의견서&#10;[제출 기한] 2024-00-00&#10;[진행도] 초안 작성 중 / 검토 대기&#10;[담당자] 본인 / ○○ 변호사"></textarea>
         </div>
         <div class="field-card">
-          <div class="field-label"><span class="field-label-icon">👥</span><span class="field-label-text">직원에게 위임한 일</span></div>
-          <div id="delegatedList" style="padding:8px 16px 4px;"></div>
-          <div style="display:flex;gap:6px;padding:4px 16px 10px;">
-            <input type="text" id="delegatedInput" placeholder="위임 업무 입력 후 Enter (예: 이사무 / 판례 조사 / 3월 20일)" style="flex:1;padding:8px 12px;border:1px solid var(--paper3);border-radius:6px;font-family:'Noto Sans KR',sans-serif;font-size:12.5px;color:var(--ink);outline:none;" onkeydown="if(event.key==='Enter'){addDelegatedItem();event.preventDefault();}">
+          <div class="field-label"><span class="field-label-icon">👥</span><span class="field-label-text">직원에게 위임한 일</span><span class="field-label-badge">완료 시 삭제</span></div>
+          <div id="delegatedList" class="checklist-list" style="padding:8px 16px 4px;"></div>
+          <div class="task-input-row" style="display:grid;grid-template-columns:1fr 1.4fr 140px auto;gap:6px;padding:4px 16px 10px;">
+            <input type="text" id="delegatedAssignee" placeholder="담당자" style="padding:8px 12px;border:1px solid var(--paper3);border-radius:6px;font-family:'Noto Sans KR',sans-serif;font-size:12.5px;color:var(--ink);outline:none;">
+            <input type="text" id="delegatedInput" placeholder="위임 업무 입력 후 Enter" style="padding:8px 12px;border:1px solid var(--paper3);border-radius:6px;font-family:'Noto Sans KR',sans-serif;font-size:12.5px;color:var(--ink);outline:none;" onkeydown="if(event.key==='Enter'){addDelegatedItem();event.preventDefault();}">
+            <input type="date" id="delegatedDueDate" style="padding:8px 10px;border:1px solid var(--paper3);border-radius:6px;font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--ink);outline:none;">
             <button onclick="addDelegatedItem()" style="padding:8px 14px;background:var(--ink);color:var(--paper2);border:none;border-radius:6px;font-size:12px;cursor:pointer;font-family:'Noto Sans KR',sans-serif;white-space:nowrap;">+ 추가</button>
           </div>
           <textarea class="field-textarea short" id="delegated" style="display:none;"></textarea>
+          <textarea class="field-textarea short" id="delegatedItems" style="display:none;"></textarea>
         </div>
         <div id="eventMemosContainer" class="full"></div>
         <textarea id="eventMemos" style="display:none;"></textarea>
         <div class="field-card full">
-          <div class="field-label"><span class="field-label-icon">💡</span><span class="field-label-text">오늘 업무에서 배운 점</span></div>
-          <textarea class="field-textarea" id="learned" placeholder="[법리·판례] 대법원 2024다12345 — ○○ 관련 판시&#10;[실무 팁] 전자소송 ○○ 기능 활용법&#10;[절차적 교훈] ○○ 시 유의사항"></textarea>
+          <div class="field-label"><span class="field-label-icon">💡</span><span class="field-label-text">오늘 배운 점</span><span class="field-label-badge green">주제별 저장</span></div>
+          <div style="padding:12px 16px 0;display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+            <select id="learnedTopic" class="field-input" style="border:1px solid var(--paper3);border-radius:6px;padding:10px 12px;">
+              <option value="">주제 선택</option>
+            </select>
+            <input class="field-input" id="learnedSubtopic" placeholder="세부 분류 (선택)" style="border:1px solid var(--paper3);border-radius:6px;padding:10px 12px;">
+            <input class="field-input" id="learnedTitle" placeholder="제목" style="grid-column:1/-1;border:1px solid var(--paper3);border-radius:6px;padding:10px 12px;">
+            <textarea class="field-textarea" id="learnedContent" placeholder="내용을 적어주세요" style="grid-column:1/-1;min-height:90px;border:1px solid var(--paper3);border-radius:6px;"></textarea>
+          </div>
+          <div style="padding:10px 16px;display:flex;justify-content:flex-end;">
+            <button onclick="addLearnedItem()" style="padding:8px 14px;background:var(--ink);color:var(--paper2);border:none;border-radius:6px;font-size:12px;cursor:pointer;font-family:'Noto Sans KR',sans-serif;white-space:nowrap;">+ 배운 점 추가</button>
+          </div>
+          <div style="padding:0 16px 8px;">
+            <div style="font-size:11px;color:var(--ink3);margin-bottom:6px;">같은 주제의 기존 메모</div>
+            <div id="learnedTopicHints" class="learned-hint-list"></div>
+          </div>
+          <div style="padding:0 16px 12px;">
+            <div style="font-size:11px;color:var(--ink3);margin-bottom:6px;">오늘 추가한 배운 점</div>
+            <div id="learnedItemsList" class="learned-item-list"></div>
+          </div>
+          <textarea class="field-textarea" id="learned" style="display:none;"></textarea>
+          <textarea class="field-textarea" id="learnedItems" style="display:none;"></textarea>
         </div>
         <div class="field-card full">
-          <div class="field-label"><span class="field-label-icon">📌</span><span class="field-label-text">기타 / 내일 할 일</span></div>
-          <textarea class="field-textarea" id="etc" placeholder="[내일 우선순위]&#10;1. ○○ 준비서면 제출 (D-1)&#10;2. ○○ 의뢰인 상담&#10;[기한 임박 사건] 2024가합1234 — 00일 제출기한&#10;[주간 점검] 이번 주 마감 서면 현황"></textarea>
+          <div class="field-label"><span class="field-label-icon">⏭️</span><span class="field-label-text">내일 할 일</span><span class="field-label-badge blue">미체크 시 다음날 오늘 할 일로 이월</span></div>
+          <div id="tomorrowTasksList" class="checklist-list" style="padding:8px 16px 4px;"></div>
+          <div class="task-input-row" style="display:flex;gap:6px;padding:4px 16px 10px;">
+            <input type="text" id="tomorrowTasksInput" placeholder="내일 할 일 입력 후 Enter" style="flex:1;padding:8px 12px;border:1px solid var(--paper3);border-radius:6px;font-family:'Noto Sans KR',sans-serif;font-size:12.5px;color:var(--ink);outline:none;" onkeydown="if(event.key==='Enter'){addTomorrowTask();event.preventDefault();}">
+            <input type="date" id="tomorrowTasksDueDate" style="padding:8px 10px;border:1px solid var(--paper3);border-radius:6px;font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--ink);outline:none;">
+            <button onclick="addTomorrowTask()" style="padding:8px 14px;background:var(--ink);color:var(--paper2);border:none;border-radius:6px;font-size:12px;cursor:pointer;font-family:'Noto Sans KR',sans-serif;white-space:nowrap;">+ 추가</button>
+          </div>
+          <textarea class="field-textarea short" id="tomorrowTasks" style="display:none;"></textarea>
+        </div>
+        <div class="field-card full">
+          <div class="field-label"><span class="field-label-icon">📌</span><span class="field-label-text">기타 메모</span></div>
+          <textarea class="field-textarea" id="etc" placeholder="추가로 남길 메모가 있으면 자유롭게 적어주세요"></textarea>
         </div>
       </div>
     </div>
@@ -518,6 +575,17 @@
       <div class="section-title">일지 목록</div>
       <div class="stats-bar" id="statBar"></div>
       <div id="listView"></div>
+    </div>
+
+    <!-- ── LEARNED VIEW ── -->
+    <div class="view content" id="view-learned">
+      <div class="section-title">배운 점 모아보기 <span id="learnedArchiveCount"></span></div>
+      <div style="max-width:980px;margin-bottom:18px;display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
+        <select id="learnedArchiveTopicFilter" style="padding:10px 14px;border:1px solid var(--paper3);border-radius:8px;background:white;font-family:'Noto Sans KR',sans-serif;font-size:13px;color:var(--ink);outline:none;min-width:220px;" onchange="renderLearnedArchive()">
+          <option value="">전체 주제</option>
+        </select>
+      </div>
+      <div id="learnedArchiveView"></div>
     </div>
 
     <!-- ── SETUP VIEW ── -->
@@ -575,6 +643,7 @@
 <div class="toast" id="toast"></div>
 <div id="floatingTooltip"></div>
 
+<script type="module" src="./law-journal-logic.js"></script>
 <script>
 // ══════════════════════════════════════════
 //  FIREBASE INIT
@@ -639,6 +708,12 @@ function fmtDate(k) {
   return `${d.getFullYear()}년 ${d.getMonth()+1}월 ${d.getDate()}일 (${days[d.getDay()]})`;
 }
 
+function getLogic() {
+  return window.LawJournalLogic || {};
+}
+
+const DEFAULT_LEARNED_TOPICS = ['법리·판례', '실무 팁', '절차적 교훈', '문서작성', '증거/입증', '상담/수임', '커뮤니케이션', '기타'];
+
 // Firebase-first data access
 async function loadEntry(dateKey) {
   if (fbUser) {
@@ -662,7 +737,7 @@ async function saveEntryData(data, dateKey) {
   const entries = getLocalEntries();
   entries[dateKey] = entry;
   saveLocalEntries(entries);
-  renderRecentList(); renderCalendarMini();
+  renderRecentList(); renderCalendarMini(); renderStats(); renderLearnedArchive(); populateLearnedTopicOptions();
   if (fbUser) {
     try { await fbDb.ref(`users/${fbUser.uid}/entries/${dateKey}`).set(entry); }
     catch(e) { console.warn('Firebase save failed', e); showToast('⚠️ Firebase 저장 실패 — 로컬에는 저장됨'); }
@@ -1050,7 +1125,7 @@ function updateSetupStepNums() {
 // ══════════════════════════════════════════
 
 const FIELDS = ['entryDate','arrivalTime','leaveTime',
-  'todayWork','eventMemos','callNotes','writtenDocs','pendingDocs','delegated','learned','etc'];
+  'todayTasks','todayWork','eventMemos','callNotes','writtenDocs','pendingDocs','delegated','delegatedItems','learned','learnedItems','tomorrowTasks','etc'];
 
 function collectForm() {
   const data = {};
@@ -1059,8 +1134,13 @@ function collectForm() {
 }
 function fillForm(data) {
   FIELDS.forEach(id => { const el=document.getElementById(id); if(el && data[id]!==undefined) el.value=data[id]; });
+  renderTodayTasksList();
+  renderTomorrowTasksList();
   renderDelegatedList();
+  renderLearnedItemsList();
+  populateLearnedTopicOptions();
   renderEventMemos();
+  updateLearnedTopicHints();
 }
 
 // ── 이벤트 유형 분류 ──
@@ -1173,124 +1253,370 @@ function removeManualMemo(id) {
   renderEventMemos();
 }
 
-// ── 이전 날짜 미완료 위임 업무 이월 ──
-async function mergeDelegatedFromPrev(dateKey) {
+function parseStructuredItems(fieldId, fallbackFieldId = '') {
+  const logic = getLogic();
+  const raw = document.getElementById(fieldId)?.value || '';
+  const parsed = logic.parseJsonArray ? logic.parseJsonArray(raw) : [];
+  if (parsed.length) return parsed;
+  if (!fallbackFieldId) return [];
+  const fallbackRaw = document.getElementById(fallbackFieldId)?.value || '';
+  return logic.parseChecklistItems ? logic.parseChecklistItems(fallbackRaw) : [];
+}
+
+function formatTaskDateBadge(dueDate) {
+  if (!dueDate) return '기한 미지정';
+  const d = new Date(dueDate + 'T00:00:00');
+  return `기한 ${d.getFullYear()}.${String(d.getMonth()+1).padStart(2,'0')}.${String(d.getDate()).padStart(2,'0')}`;
+}
+
+function syncTodayTasksField(items) {
+  document.getElementById('todayTasks').value = JSON.stringify(items);
+}
+
+function syncTomorrowTasksField(items) {
+  document.getElementById('tomorrowTasks').value = JSON.stringify(items);
+}
+
+function syncDelegatedFields(items) {
+  document.getElementById('delegatedItems').value = JSON.stringify(items);
+  document.getElementById('delegated').value = items.map(item => {
+    const assignee = item.assignee ? `[${item.assignee}] ` : '';
+    const due = item.dueDate ? ` (${item.dueDate})` : '';
+    return `${assignee}${item.text}${due}`;
+  }).join('\n');
+}
+
+function summarizeLearnedItems(items) {
+  return items.map(item => `[${item.topic}] ${item.title}${item.content ? ' — ' + item.content : ''}`).join('\n');
+}
+
+function syncLearnedFields(items) {
+  document.getElementById('learnedItems').value = JSON.stringify(items);
+  document.getElementById('learned').value = summarizeLearnedItems(items);
+}
+
+function getTodayTaskItems() {
+  return parseStructuredItems('todayTasks');
+}
+
+function getTomorrowTaskItems() {
+  return parseStructuredItems('tomorrowTasks');
+}
+
+function getDelegatedItems() {
+  const logic = getLogic();
+  const parsed = parseStructuredItems('delegatedItems', 'delegated');
+  const normalized = parsed
+    .map(item => logic.normalizeTaskItem ? logic.normalizeTaskItem(item, 'delegated') : item)
+    .filter(Boolean);
+  return logic.sortDelegatedTasks ? logic.sortDelegatedTasks(normalized) : normalized;
+}
+
+function getLearnedItems() {
+  const logic = getLogic();
+  return logic.getLearnedItemsFromEntry
+    ? logic.getLearnedItemsFromEntry({ learnedItems: document.getElementById('learnedItems').value, learned: document.getElementById('learned').value }, currentDate)
+    : [];
+}
+
+function buildChecklistRow(item, index, options) {
+  const badges = [];
+  if (item.assignee) badges.push(`<span class="task-badge assignee">${escapeHtml(item.assignee)}</span>`);
+  if (item.dueDate) badges.push(`<span class="task-badge due">${escapeHtml(formatTaskDateBadge(item.dueDate))}</span>`);
+  else if (options.showUndated !== false) badges.push('<span class="task-badge">기한 미지정</span>');
+  const overdue = item.dueDate && new Date(item.dueDate + 'T00:00:00') < new Date(todayKey() + 'T00:00:00');
+  if (overdue) badges.push('<span class="task-badge overdue">기한 지남</span>');
+  if (item.sourceDate) badges.push(`<span class="task-badge">이월 ${escapeHtml(item.sourceDate.slice(5))}</span>`);
+  return `<div class="${options.rowClass} checklist-item${item.done?' done':''}">
+    <input type="checkbox" ${item.done?'checked':''} onchange="${options.toggleHandler}(${index}, this)">
+    <span class="${options.textClass || 'checklist-text'}">${escapeHtml(item.text)}</span>
+    <div class="task-meta">${badges.join('')}</div>
+    <button class="${options.deleteClass || 'checklist-del'}" onclick="${options.removeHandler}(${index})" title="삭제">×</button>
+  </div>`;
+}
+
+function renderTodayTasksList() {
+  const list = document.getElementById('todayTasksList');
+  const logic = getLogic();
+  const items = logic.sortChecklistByDueDate ? logic.sortChecklistByDueDate(getTodayTaskItems()) : getTodayTaskItems();
+  syncTodayTasksField(items);
+  if (!items.length) {
+    list.innerHTML = '<div style="font-size:12px;color:var(--ink3);padding:4px 0;">오늘 할 일이 없습니다.</div>';
+    return;
+  }
+  list.innerHTML = items.map((item, index) => buildChecklistRow(item, index, {
+    rowClass: 'checklist-item',
+    toggleHandler: 'toggleTodayTask',
+    removeHandler: 'removeTodayTask',
+  })).join('');
+}
+
+function renderTomorrowTasksList() {
+  const list = document.getElementById('tomorrowTasksList');
+  const logic = getLogic();
+  const items = logic.sortChecklistByDueDate ? logic.sortChecklistByDueDate(getTomorrowTaskItems()) : getTomorrowTaskItems();
+  syncTomorrowTasksField(items);
+  if (!items.length) {
+    list.innerHTML = '<div style="font-size:12px;color:var(--ink3);padding:4px 0;">내일 할 일이 없습니다.</div>';
+    return;
+  }
+  list.innerHTML = items.map((item, index) => buildChecklistRow(item, index, {
+    rowClass: 'checklist-item',
+    toggleHandler: 'toggleTomorrowTask',
+    removeHandler: 'removeTomorrowTask',
+  })).join('');
+}
+
+async function mergeTodayTasksFromPrevious(dateKey) {
+  const logic = getLogic();
   const entries = getLocalEntries();
-  // dateKey 이전 날짜들을 최신순으로 정렬
-  const prevDates = Object.keys(entries)
-    .filter(d => d < dateKey)
-    .sort((a, b) => b.localeCompare(a));
+  entries[dateKey] = { ...(entries[dateKey] || {}), todayTasks: document.getElementById('todayTasks').value };
+  const merged = logic.carryForwardTomorrowTasks ? logic.carryForwardTomorrowTasks(entries, dateKey) : getTodayTaskItems();
+  syncTodayTasksField(merged);
+  renderTodayTasksList();
+}
 
-  // 이전 날짜들에서 미완료 위임 항목 수집
-  const carriedBaseTexts = new Set();
-  const carriedItems = [];
-  for (const d of prevDates) {
-    const raw = entries[d]?.delegated || '';
-    if (!raw.trim()) continue;
-    const lines = raw.split('\n').filter(l => l.trim());
-    // 이월 날짜 표시: (이월: M/D)
-    const dateParts = d.split('-'); // YYYY-MM-DD
-    const dateLabel = dateParts.length === 3
-      ? `(이월: ${parseInt(dateParts[1])}/${parseInt(dateParts[2])})`
-      : '';
-    for (const line of lines) {
-      const done = line.startsWith('[x] ');
-      if (done) continue; // 완료된 항목은 이월하지 않음
-      const text = line.trim();
-      // 기존 이월 annotation 제거하여 base text 추출 (중복 annotation 방지)
-      const baseText = text.replace(/\s*\(이월: \d+\/\d+\)$/, '');
-      if (!carriedBaseTexts.has(baseText)) {
-        carriedBaseTexts.add(baseText);
-        const annotatedText = dateLabel ? `${baseText} ${dateLabel}` : baseText;
-        carriedItems.push(annotatedText);
-      }
-    }
-  }
-  if (!carriedItems.length) return;
+function addTodayTask() {
+  const logic = getLogic();
+  const input = document.getElementById('todayTasksInput');
+  const dueDate = document.getElementById('todayTasksDueDate').value;
+  const text = input.value.trim();
+  if (!text) return;
+  const items = getTodayTaskItems();
+  items.push(logic.normalizeTaskItem ? logic.normalizeTaskItem({ text, done: false, dueDate }, 'today') : { text, done:false, dueDate });
+  syncTodayTasksField(items);
+  renderTodayTasksList();
+  input.value = '';
+  document.getElementById('todayTasksDueDate').value = '';
+}
 
-  // 현재 날짜의 기존 항목과 병합 (중복 제거, base text 기준)
-  const currentItems = parseDelegatedItems();
-  const existingBaseTexts = new Set(
-    currentItems.map(i => i.text.replace(/\s*\(이월: \d+\/\d+\)$/, ''))
-  );
-  let added = false;
-  for (const text of carriedItems) {
-    const baseText = text.replace(/\s*\(이월: \d+\/\d+\)$/, '');
-    if (!existingBaseTexts.has(baseText)) {
-      currentItems.push({ text, done: false });
-      added = true;
-    }
-  }
-  if (added) {
-    serializeDelegatedItems(currentItems);
-    renderDelegatedList();
+function addTomorrowTask() {
+  const logic = getLogic();
+  const input = document.getElementById('tomorrowTasksInput');
+  const dueDate = document.getElementById('tomorrowTasksDueDate').value;
+  const text = input.value.trim();
+  if (!text) return;
+  const items = getTomorrowTaskItems();
+  items.push(logic.normalizeTaskItem ? logic.normalizeTaskItem({ text, done: false, dueDate }, 'tomorrow') : { text, done:false, dueDate });
+  syncTomorrowTasksField(items);
+  renderTomorrowTasksList();
+  input.value = '';
+  document.getElementById('tomorrowTasksDueDate').value = '';
+}
+
+function removeTodayTask(idx) {
+  const items = getTodayTaskItems();
+  items.splice(idx, 1);
+  syncTodayTasksField(items);
+  renderTodayTasksList();
+}
+
+function removeTomorrowTask(idx) {
+  const items = getTomorrowTaskItems();
+  items.splice(idx, 1);
+  syncTomorrowTasksField(items);
+  renderTomorrowTasksList();
+}
+
+function toggleTodayTask(idx, checkbox) {
+  const row = checkbox ? checkbox.closest('.checklist-item') : null;
+  const doDelete = () => removeTodayTask(idx);
+  if (row) {
+    row.style.opacity = '0';
+    setTimeout(doDelete, 220);
+  } else {
+    doDelete();
   }
 }
 
-// ── 위임 체크리스트 ──
-function parseDelegatedItems() {
-  const raw = document.getElementById('delegated').value || '';
-  if (!raw.trim()) return [];
-  return raw.split('\n').filter(l => l.trim()).map(line => {
-    const done = line.startsWith('[x] ');
-    return { text: done ? line.slice(4) : line, done };
-  });
-}
-
-function serializeDelegatedItems(items) {
-  document.getElementById('delegated').value = items.map(i => (i.done ? '[x] ' : '') + i.text).join('\n');
+function toggleTomorrowTask(idx, checkbox) {
+  const row = checkbox ? checkbox.closest('.checklist-item') : null;
+  const doDelete = () => removeTomorrowTask(idx);
+  if (row) {
+    row.style.opacity = '0';
+    setTimeout(doDelete, 220);
+  } else {
+    doDelete();
+  }
 }
 
 function renderDelegatedList() {
   const list = document.getElementById('delegatedList');
-  const items = parseDelegatedItems();
-  if (!items.length) { list.innerHTML = '<div style="font-size:12px;color:var(--ink3);padding:4px 0;">위임한 업무가 없습니다.</div>'; return; }
-  list.innerHTML = items.map((item, i) => `<div class="deleg-item">
-    <input type="checkbox" ${item.done?'checked':''} onchange="toggleDelegatedItem(${i}, this)">
-    <span class="deleg-text">${escapeHtml(item.text)}</span>
-    <button class="deleg-del" onclick="removeDelegatedItem(${i})" title="삭제">×</button>
-  </div>`).join('');
+  const items = getDelegatedItems();
+  syncDelegatedFields(items);
+  if (!items.length) {
+    list.innerHTML = '<div style="font-size:12px;color:var(--ink3);padding:4px 0;">위임한 업무가 없습니다.</div>';
+    return;
+  }
+  list.innerHTML = items.map((item, index) => buildChecklistRow(item, index, {
+    rowClass: 'deleg-item',
+    textClass: 'deleg-text',
+    deleteClass: 'deleg-del',
+    toggleHandler: 'toggleDelegatedItem',
+    removeHandler: 'removeDelegatedItem',
+  })).join('');
 }
 
 function addDelegatedItem() {
+  const logic = getLogic();
+  const assignee = document.getElementById('delegatedAssignee').value.trim();
   const input = document.getElementById('delegatedInput');
+  const dueDate = document.getElementById('delegatedDueDate').value;
   const text = input.value.trim();
   if (!text) return;
-  const items = parseDelegatedItems();
-  items.push({ text, done: false });
-  serializeDelegatedItems(items);
+  const items = getDelegatedItems();
+  items.push(logic.normalizeTaskItem ? logic.normalizeTaskItem({ assignee, text, dueDate, done: false }, 'delegated') : { assignee, text, dueDate, done:false });
+  syncDelegatedFields(items);
   renderDelegatedList();
+  document.getElementById('delegatedAssignee').value = '';
   input.value = '';
+  document.getElementById('delegatedDueDate').value = '';
 }
 
 function toggleDelegatedItem(idx, checkbox) {
-  const items = parseDelegatedItems();
-  if (!items[idx]) return;
-  // 체크 시 페이드아웃 후 삭제
   const row = checkbox ? checkbox.closest('.deleg-item') : null;
   const doDelete = () => {
-    const current = parseDelegatedItems();
+    const current = getDelegatedItems();
     current.splice(idx, 1);
-    serializeDelegatedItems(current);
+    syncDelegatedFields(current);
     renderDelegatedList();
-    // Firebase에도 즉시 반영
     const data = collectForm();
     const dateKey = data.entryDate || currentDate;
     saveEntryData(data, dateKey);
   };
   if (row) {
     row.style.opacity = '0';
-    setTimeout(doDelete, 300);
+    setTimeout(doDelete, 220);
   } else {
     doDelete();
   }
 }
 
 function removeDelegatedItem(idx) {
-  const items = parseDelegatedItems();
+  const items = getDelegatedItems();
   items.splice(idx, 1);
-  serializeDelegatedItems(items);
+  syncDelegatedFields(items);
   renderDelegatedList();
+}
+
+function renderLearnedItemsList() {
+  const list = document.getElementById('learnedItemsList');
+  const items = getLearnedItems();
+  syncLearnedFields(items);
+  if (!items.length) {
+    list.innerHTML = '<div style="font-size:12px;color:var(--ink3);padding:4px 0;">오늘 저장한 배운 점이 없습니다.</div>';
+    return;
+  }
+  list.innerHTML = items.map((item, index) => `<div class="learned-item-card">
+    <div class="learned-item-header">
+      <span class="task-badge">${escapeHtml(item.topic)}</span>
+      ${item.subtopic ? `<span class="task-badge">${escapeHtml(item.subtopic)}</span>` : ''}
+      <span class="learned-item-title">${escapeHtml(item.title)}</span>
+      <button class="learned-item-remove" onclick="removeLearnedItem(${index})" title="삭제">×</button>
+    </div>
+    <div class="learned-item-content">${escapeHtml(item.content)}</div>
+  </div>`).join('');
+}
+
+function populateLearnedTopicOptions() {
+  const entries = getEntries();
+  const logic = getLogic();
+  const dynamicTopics = logic.buildLearnedTopicOptions ? logic.buildLearnedTopicOptions(entries) : [];
+  const topics = Array.from(new Set([...DEFAULT_LEARNED_TOPICS, ...dynamicTopics])).filter(Boolean);
+  const currentValue = document.getElementById('learnedTopic')?.value || '';
+  const archiveValue = document.getElementById('learnedArchiveTopicFilter')?.value || '';
+  const topicOptions = ['<option value="">주제 선택</option>', ...topics.map(topic => `<option value="${escapeHtml(topic)}">${escapeHtml(topic)}</option>`)].join('');
+  const archiveOptions = ['<option value="">전체 주제</option>', ...topics.map(topic => `<option value="${escapeHtml(topic)}">${escapeHtml(topic)}</option>`)].join('');
+  document.getElementById('learnedTopic').innerHTML = topicOptions;
+  document.getElementById('learnedArchiveTopicFilter').innerHTML = archiveOptions;
+  document.getElementById('learnedTopic').value = topics.includes(currentValue) ? currentValue : '';
+  document.getElementById('learnedArchiveTopicFilter').value = topics.includes(archiveValue) ? archiveValue : '';
+}
+
+function updateLearnedTopicHints() {
+  const topic = document.getElementById('learnedTopic').value;
+  const hintEl = document.getElementById('learnedTopicHints');
+  if (!topic) {
+    hintEl.innerHTML = '<div style="font-size:12px;color:var(--ink3);padding:4px 0;">주제를 선택하면 기존 메모가 보입니다.</div>';
+    return;
+  }
+  const entries = getEntries();
+  const dateKey = document.getElementById('entryDate').value || currentDate;
+  entries[dateKey] = { ...(entries[dateKey] || {}), learnedItems: document.getElementById('learnedItems').value, learned: document.getElementById('learned').value };
+  const logic = getLogic();
+  const items = logic.filterLearnedItemsByTopic ? logic.filterLearnedItemsByTopic(entries, topic) : [];
+  const filtered = items.slice(0, 5);
+  if (!filtered.length) {
+    hintEl.innerHTML = '<div style="font-size:12px;color:var(--ink3);padding:4px 0;">이 주제의 기존 메모가 아직 없습니다.</div>';
+    return;
+  }
+  hintEl.innerHTML = filtered.map(item => `<div class="learned-item-card">
+    <div class="learned-item-header">
+      <span class="task-badge">${escapeHtml(item.date)}</span>
+      ${item.subtopic ? `<span class="task-badge">${escapeHtml(item.subtopic)}</span>` : ''}
+      <span class="learned-item-title">${escapeHtml(item.title)}</span>
+    </div>
+    <div class="learned-item-content">${escapeHtml(item.content)}</div>
+  </div>`).join('');
+}
+
+function addLearnedItem() {
+  const topic = document.getElementById('learnedTopic').value.trim() || '미분류';
+  const subtopic = document.getElementById('learnedSubtopic').value.trim();
+  const title = document.getElementById('learnedTitle').value.trim();
+  const content = document.getElementById('learnedContent').value.trim();
+  if (!title && !content) return;
+  const items = getLearnedItems();
+  items.unshift({
+    id: `learned_${Date.now()}`,
+    topic,
+    subtopic,
+    title: title || '(제목 없음)',
+    content,
+    date: document.getElementById('entryDate').value || currentDate,
+  });
+  syncLearnedFields(items);
+  renderLearnedItemsList();
+  populateLearnedTopicOptions();
+  document.getElementById('learnedTitle').value = '';
+  document.getElementById('learnedContent').value = '';
+  updateLearnedTopicHints();
+}
+
+function removeLearnedItem(idx) {
+  const items = getLearnedItems();
+  items.splice(idx, 1);
+  syncLearnedFields(items);
+  renderLearnedItemsList();
+  populateLearnedTopicOptions();
+  updateLearnedTopicHints();
+}
+
+function renderLearnedArchive() {
+  const entries = getEntries();
+  const dateKey = document.getElementById('entryDate')?.value || currentDate;
+  entries[dateKey] = { ...(entries[dateKey] || {}), learnedItems: document.getElementById('learnedItems')?.value || '', learned: document.getElementById('learned')?.value || '' };
+  const logic = getLogic();
+  const allGroups = logic.buildLearnedTopicGroups ? logic.buildLearnedTopicGroups(entries) : [];
+  const selectedTopic = document.getElementById('learnedArchiveTopicFilter').value;
+  const groups = selectedTopic ? allGroups.filter(group => group.topic === selectedTopic) : allGroups;
+  document.getElementById('learnedArchiveCount').textContent = `${groups.reduce((sum, group) => sum + group.items.length, 0)}건`;
+  const el = document.getElementById('learnedArchiveView');
+  if (!groups.length) {
+    el.innerHTML = '<div class="empty-state"><div class="es-icon">💡</div><p>저장된 배운 점이 없습니다.</p></div>';
+    return;
+  }
+  el.innerHTML = groups.map(group => `<div class="learned-topic-group">
+    <h3>${escapeHtml(group.topic)}</h3>
+    <div class="learned-item-list">${group.items.map(item => `<div class="learned-item-card">
+      <div class="learned-item-header">
+        <span class="task-badge">${escapeHtml(item.date)}</span>
+        ${item.subtopic ? `<span class="task-badge">${escapeHtml(item.subtopic)}</span>` : ''}
+        <span class="learned-item-title">${escapeHtml(item.title)}</span>
+      </div>
+      <div class="learned-item-content">${escapeHtml(item.content)}</div>
+    </div>`).join('')}</div>
+  </div>`).join('');
 }
 
 async function loadEntryToForm(dateKey) {
@@ -1306,10 +1632,17 @@ async function loadEntryToForm(dateKey) {
       if (id==='leaveTime') { document.getElementById(id).value='18:00'; return; }
       const el=document.getElementById(id); if(el) el.value='';
     });
+    renderTodayTasksList();
+    renderTomorrowTasksList();
+    renderDelegatedList();
+    renderLearnedItemsList();
+    populateLearnedTopicOptions();
   }
-  // 이전 날짜에서 미완료 위임 업무 이월 (기존 항목과 병합)
-  await mergeDelegatedFromPrev(dateKey);
+  await mergeTodayTasksFromPrevious(dateKey);
   updateTopbar();
+  updateLearnedTopicHints();
+  populateLearnedTopicOptions();
+  renderLearnedArchive();
   if (accessToken) syncGCalEvents(dateKey);
 }
 
@@ -1367,12 +1700,17 @@ async function syncToCaseManager(data, dateKey) {
   const today = dateKey;
   let synced = 0;
 
+  const delegatedLines = (() => {
+    const logic = getLogic();
+    const items = logic.parseJsonArray ? logic.parseJsonArray(data.delegatedItems || '[]') : [];
+    return items.map(item => `${item.assignee ? item.assignee + ' / ' : ''}${item.text}` + (item.dueDate ? ` / ${item.dueDate}` : '')).join('\n');
+  })();
+
   const fields = [
     { text: data.todayWork,    type: 'timeline', label: '오늘 한 일' },
     { text: data.callNotes,    type: 'memo',     label: '통화 내용',      category: '일반메모' },
     { text: data.writtenDocs,  type: 'memo',     label: '제출 서면',      category: '공식결과메모' },
-
-    { text: data.delegated,    type: 'todo',     label: '위임 업무' },
+    { text: delegatedLines,    type: 'todo',     label: '위임 업무' },
   ];
 
   for (const field of fields) {
@@ -1488,6 +1826,7 @@ function switchView(v) {
   document.getElementById('nav-'+v).classList.add('active');
   closeSidebar();
   if (v==='list')  { renderListView(); renderStats(); }
+  if (v==='learned') { populateLearnedTopicOptions(); renderLearnedArchive(); }
   if (v==='search') document.getElementById('fullSearchInput').focus();
   if (v==='setup')  updateSetupStepNums();
 }
@@ -1567,7 +1906,7 @@ function fullSearch(q) {
   countEl.textContent=`${hits.length}건`;
   if(!hits.length){results.innerHTML='<div class="empty-state"><div class="es-icon">🗂</div><p>검색 결과 없음</p></div>';return;}
   const hl=s=>{const escaped=escapeHtml(s||'');return escaped.replace(new RegExp(escapeHtml(q).replace(/[.*+?^${}()|[\]\\]/g,'\\$&'),'gi'),m=>`<mark>${m}</mark>`);};
-  const fLabels={todayWork:'오늘 한 일',eventMemos:'일정 메모',callNotes:'통화',writtenDocs:'제출한 서면',pendingDocs:'제출 예정',delegated:'위임',learned:'배운 점',etc:'기타'};
+  const fLabels={todayTasks:'오늘 할 일',todayWork:'오늘 한 일',eventMemos:'일정 메모',callNotes:'통화',writtenDocs:'제출한 서면',pendingDocs:'제출 예정',delegated:'위임',learned:'배운 점',learnedItems:'배운 점',tomorrowTasks:'내일 할 일',etc:'기타'};
   results.innerHTML=hits.map(([k,e])=>{
     const tags=Object.entries(fLabels).filter(([f])=>(e[f]||'').toLowerCase().includes(lq)).map(([,l])=>`<span class="sr-field-tag">${l}</span>`).join('');
     const snippet=Object.entries(fLabels).map(([f,l])=>{
@@ -1590,10 +1929,12 @@ function renderStats() {
   const entries=getEntries(); const keys=Object.keys(entries);
   const thisMonth=todayKey().slice(0,7);
   const memoCount = keys.filter(k=>{ try { return JSON.parse(entries[k].eventMemos||'[]').some(m=>m.memo&&m.memo.trim()); } catch { return false; } }).length;
+  const learnedCount = keys.reduce((sum, k) => sum + getLogic().getLearnedItemsFromEntry(entries[k], k).length, 0);
   document.getElementById('statBar').innerHTML=`
     <div class="stat-card"><div class="stat-value">${keys.length}</div><div class="stat-label">총 일지 수</div></div>
     <div class="stat-card"><div class="stat-value">${keys.filter(k=>k.startsWith(thisMonth)).length}</div><div class="stat-label">이번 달</div></div>
-    <div class="stat-card"><div class="stat-value">${memoCount}</div><div class="stat-label">일정 메모 있음</div></div>`;
+    <div class="stat-card"><div class="stat-value">${memoCount}</div><div class="stat-label">일정 메모 있음</div></div>
+    <div class="stat-card"><div class="stat-value">${learnedCount}</div><div class="stat-label">배운 점 기록</div></div>`;
 }
 
 function renderListView() {
@@ -1603,7 +1944,9 @@ function renderListView() {
   el.innerHTML=`<div style="max-width:900px;">`+keys.map(k=>{
     const e=entries[k];
     const memoSummary = (()=>{ try { return JSON.parse(e.eventMemos||'[]').filter(m=>m.memo&&m.memo.trim()).map(m=>(m.title?m.title+': ':'')+m.memo.slice(0,40)).join(' | '); } catch { return ''; } })();
-    const fields=[e.todayWork&&{icon:'📝',label:'오늘 한 일',val:e.todayWork},memoSummary&&{icon:'📅',label:'일정 메모',val:memoSummary},e.writtenDocs&&{icon:'📄',label:'제출한 서면',val:e.writtenDocs}].filter(Boolean);
+    const todayTasksSummary = (()=>{ try { return JSON.parse(e.todayTasks||'[]').map(t=>t.text).slice(0,2).join(' / '); } catch { return ''; } })();
+    const learnedSummary = (()=>{ const items = getLogic().getLearnedItemsFromEntry(e, k); return items.slice(0,1).map(item=>item.title).join(''); })();
+    const fields=[todayTasksSummary&&{icon:'☑️',label:'오늘 할 일',val:todayTasksSummary},e.todayWork&&{icon:'📝',label:'오늘 한 일',val:e.todayWork},memoSummary&&{icon:'📅',label:'일정 메모',val:memoSummary},learnedSummary&&{icon:'💡',label:'오늘 배운 점',val:learnedSummary},e.writtenDocs&&{icon:'📄',label:'제출한 서면',val:e.writtenDocs}].filter(Boolean);
     return `<div class="search-result-item" onclick="calSelectDate('${k}')">
       <div class="sr-date" style="display:flex;align-items:center;gap:10px;">
         ${fmtDate(k)}
@@ -1733,8 +2076,9 @@ function initApp() {
   document.getElementById('entryDate').value=todayKey();
   document.getElementById('arrivalTime').value='09:00';
   document.getElementById('leaveTime').value='18:00';
+  document.getElementById('learnedTopic').addEventListener('change', updateLearnedTopicHints);
   loadEntryToForm(todayKey());
-  renderCalendarMini(); renderRecentList(); updateTopbar(); renderStats();
+  renderCalendarMini(); renderRecentList(); updateTopbar(); renderStats(); populateLearnedTopicOptions(); renderLearnedArchive();
   updateSetupStepNums();
   // 버전 표시 (GitHub 최신 커밋 해시)
   fetch('https://api.github.com/repos/kcozy11-prog/law-journal/commits/main?_='+Date.now(),{cache:'no-store',headers:{'If-None-Match':''}})
