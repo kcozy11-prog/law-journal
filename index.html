@@ -337,8 +337,12 @@
     /* GCal chip touch target */
     .gcal-chip { min-height:44px; }
 
-    /* Delegated task row — prevent +추가 button from being pushed off-screen */
-    #delegatedInputRow { grid-template-columns: minmax(92px, 0.9fr) minmax(0, 1.4fr) 132px auto !important; }
+    /* Delegated task row — wrap instead of clipping button */
+    #delegatedInputRow { display:flex !important; flex-wrap:wrap; gap:6px; }
+    #delegatedAssignee { flex:1 1 96px; min-width:96px; }
+    #delegatedInput { flex:2 1 180px; min-width:140px; }
+    #delegatedDueDate { flex:0 1 132px; min-width:120px; }
+    #delegatedAddBtn { flex:0 0 auto; min-height:42px; }
   }
 
   /* ══════════════════════════════════════════
@@ -366,20 +370,19 @@
 
     /* Delegated task row stacks cleanly on small phones */
     #delegatedInputRow {
-      grid-template-columns: 1fr 1fr !important;
-      align-items: stretch;
+      display:flex !important;
+      flex-wrap:wrap;
+      align-items:stretch;
     }
-    #delegatedInputRow > input[type="text"],
-    #delegatedInputRow > input[type="date"],
-    #delegatedInputRow > button {
+    #delegatedAssignee,
+    #delegatedInput,
+    #delegatedDueDate,
+    #delegatedAddBtn {
       width: 100%;
       min-width: 0;
+      flex: 1 1 100%;
     }
-    #delegatedInputRow > input[type="date"] {
-      grid-column: 1 / 2;
-    }
-    #delegatedInputRow > button {
-      grid-column: 2 / 3;
+    #delegatedAddBtn {
       min-height: 42px;
     }
   }
@@ -535,11 +538,11 @@
         <div class="field-card">
           <div class="field-label"><span class="field-label-icon">👥</span><span class="field-label-text">직원에게 위임한 일</span><span class="field-label-badge">완료 시 삭제</span></div>
           <div id="delegatedList" class="checklist-list" style="padding:8px 16px 4px;"></div>
-          <div id="delegatedInputRow" class="task-input-row" style="display:grid;grid-template-columns:1fr 1.4fr 140px auto;gap:6px;padding:4px 16px 10px;">
-            <input type="text" id="delegatedAssignee" placeholder="담당자" style="padding:8px 12px;border:1px solid var(--paper3);border-radius:6px;font-family:'Noto Sans KR',sans-serif;font-size:12.5px;color:var(--ink);outline:none;">
-            <input type="text" id="delegatedInput" placeholder="위임 업무 입력 후 Enter" style="padding:8px 12px;border:1px solid var(--paper3);border-radius:6px;font-family:'Noto Sans KR',sans-serif;font-size:12.5px;color:var(--ink);outline:none;" onkeydown="if(event.key==='Enter'){addDelegatedItem();event.preventDefault();}">
-            <input type="date" id="delegatedDueDate" style="padding:8px 10px;border:1px solid var(--paper3);border-radius:6px;font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--ink);outline:none;">
-            <button onclick="addDelegatedItem()" style="padding:8px 14px;background:var(--ink);color:var(--paper2);border:none;border-radius:6px;font-size:12px;cursor:pointer;font-family:'Noto Sans KR',sans-serif;white-space:nowrap;">+ 추가</button>
+          <div id="delegatedInputRow" class="task-input-row" style="display:flex;flex-wrap:wrap;gap:6px;padding:4px 16px 10px;">
+            <input type="text" id="delegatedAssignee" placeholder="담당자" style="flex:1 1 96px;min-width:96px;padding:8px 12px;border:1px solid var(--paper3);border-radius:6px;font-family:'Noto Sans KR',sans-serif;font-size:12.5px;color:var(--ink);outline:none;">
+            <input type="text" id="delegatedInput" placeholder="위임 업무 입력 후 Enter" style="flex:2 1 180px;min-width:140px;padding:8px 12px;border:1px solid var(--paper3);border-radius:6px;font-family:'Noto Sans KR',sans-serif;font-size:12.5px;color:var(--ink);outline:none;" onkeydown="if(event.key==='Enter'){addDelegatedItem();event.preventDefault();}">
+            <input type="date" id="delegatedDueDate" style="flex:0 1 132px;min-width:120px;padding:8px 10px;border:1px solid var(--paper3);border-radius:6px;font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--ink);outline:none;">
+            <button id="delegatedAddBtn" onclick="addDelegatedItem()" style="flex:0 0 auto;padding:8px 14px;background:var(--ink);color:var(--paper2);border:none;border-radius:6px;font-size:12px;cursor:pointer;font-family:'Noto Sans KR',sans-serif;white-space:nowrap;min-height:42px;">+ 추가</button>
           </div>
           <textarea class="field-textarea short" id="delegated" style="display:none;"></textarea>
           <textarea class="field-textarea short" id="delegatedItems" style="display:none;"></textarea>
