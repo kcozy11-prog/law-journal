@@ -9,6 +9,8 @@ import {
   buildLearnedTopicGroups,
   searchLearnedItems,
   buildLearnedArchiveStats,
+  chooseNewerEntry,
+  mergeEntryMapsBySavedAt,
 } from './law-journal-logic.js';
 
 test('carryForwardTomorrowTasks moves unchecked tomorrow tasks into today tasks', () => {
@@ -48,6 +50,64 @@ test('carryForwardPendingDocs moves unchecked pending docs into next day pending
 
   assert.deepEqual(merged.map((item) => item.text), ['준비서면 제출', '기존 서면']);
   assert.equal(merged[0].sourceDate, '2026-04-14');
+});
+
+test('carryForwardPendingDocs does not revive pending docs already checked on a later entry', () => {
+  const entries = {
+    '2026-04-14': {
+      pendingDocItems: JSON.stringify([
+        { id: 'a', text: '준비서면 제출', dueDate: '2026-04-15', done: false },
+      ]),
+    },
+    '2026-04-15': {
+      pendingDocItems: JSON.stringify([]),
+      pendingDocCompletions: JSON.stringify([
+        { id: 'a', text: '준비서면 제출', dueDate: '2026-04-15', sourceDate: '2026-04-14', completedAt: '2026-04-15T10:00:00.000Z' },
+      ]),
+    },
+    '2026-04-16': {
+      pendingDocItems: JSON.stringify([]),
+    },
+  };
+
+  assert.deepEqual(carryForwardPendingDocs(entries, '2026-04-15').map((item) => item.text), []);
+  assert.deepEqual(carryForwardPendingDocs(entries, '2026-04-16').map((item) => item.text), []);
+});
+
+test('carryForwardPendingDocs matches checked legacy pending docs without stable ids by text and source date', () => {
+  const entries = {
+    '2026-04-14': {
+      pendingDocItems: JSON.stringify([
+        { text: '레거시 준비서면 제출', dueDate: '2026-04-15', done: false },
+      ]),
+    },
+    '2026-04-15': {
+      pendingDocItems: JSON.stringify([]),
+      pendingDocCompletions: JSON.stringify([
+        { id: 'generated-at-check-time', text: '레거시 준비서면 제출', dueDate: '2026-04-15', sourceDate: '2026-04-14', completedAt: '2026-04-15T10:00:00.000Z' },
+      ]),
+    },
+  };
+
+  assert.deepEqual(carryForwardPendingDocs(entries, '2026-04-15').map((item) => item.text), []);
+});
+
+test('carryForwardPendingDocs keeps distinct pending docs with the same text but different due dates', () => {
+  const entries = {
+    '2026-04-14': {
+      pendingDocItems: JSON.stringify([
+        { id: 'a', text: '준비서면 제출', dueDate: '2026-04-15', done: false },
+        { id: 'b', text: '준비서면 제출', dueDate: '2026-04-16', done: false },
+      ]),
+    },
+    '2026-04-15': {
+      pendingDocItems: JSON.stringify([]),
+    },
+  };
+
+  const merged = carryForwardPendingDocs(entries, '2026-04-15');
+
+  assert.deepEqual(merged.map((item) => item.dueDate), ['2026-04-15', '2026-04-16']);
 });
 
 test('sortDelegatedTasks orders by nearest due date and pushes undated items last', () => {
@@ -138,4 +198,41 @@ test('parseChecklistItems and serializeChecklistItems keep checkbox state', () =
     serializeChecklistItems(items),
     '[ ] 초안 작성\n[x] 판례 확인'
   );
+});
+
+test('chooseNewerEntry preserves local edits when they are newer than Firebase data', () => {
+  const local = { todayWork: '로컬 최신', _savedAt: '2026-04-15T12:00:00.000Z' };
+  const remote = { todayWork: '원격 과거', _savedAt: '2026-04-15T11:00:00.000Z' };
+
+  assert.equal(chooseNewerEntry(local, remote), local);
+  assert.equal(chooseNewerEntry(remote, local), local);
+});
+
+test('chooseNewerEntry prefers Firebase data when saved timestamps are tied or missing', () => {
+  const localMissing = { todayWork: '로컬 레거시' };
+  const remoteMissing = { todayWork: '원격 레거시' };
+  const localEqual = { todayWork: '로컬 동률', _savedAt: '2026-04-15T12:00:00.000Z' };
+  const remoteEqual = { todayWork: '원격 동률', _savedAt: '2026-04-15T12:00:00.000Z' };
+
+  assert.equal(chooseNewerEntry(localMissing, remoteMissing), remoteMissing);
+  assert.equal(chooseNewerEntry(localEqual, remoteEqual), remoteEqual);
+});
+
+test('mergeEntryMapsBySavedAt keeps newer local entries and identifies Firebase write-backs', () => {
+  const local = {
+    '2026-04-15': { todayWork: '로컬 최신', _savedAt: '2026-04-15T12:00:00.000Z' },
+    '2026-04-17': { todayWork: '로컬만 있음', _savedAt: '2026-04-17T09:00:00.000Z' },
+  };
+  const remote = {
+    '2026-04-15': { todayWork: '원격 과거', _savedAt: '2026-04-15T11:00:00.000Z' },
+    '2026-04-16': { todayWork: '원격 최신', _savedAt: '2026-04-16T12:00:00.000Z' },
+  };
+
+  const result = mergeEntryMapsBySavedAt(local, remote);
+
+  assert.equal(result.entries['2026-04-15'], local['2026-04-15']);
+  assert.equal(result.entries['2026-04-16'], remote['2026-04-16']);
+  assert.equal(result.entries['2026-04-17'], local['2026-04-17']);
+  assert.deepEqual(result.localWins, ['2026-04-15', '2026-04-17']);
+  assert.deepEqual(result.remoteWins, ['2026-04-16']);
 });

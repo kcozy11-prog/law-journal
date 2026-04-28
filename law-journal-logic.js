@@ -18,6 +18,43 @@ export function parseJsonArray(raw, fallback = []) {
   }
 }
 
+export function entrySavedAtMs(entry = {}) {
+  const timestamp = Date.parse(entry?._savedAt || '');
+  return Number.isFinite(timestamp) ? timestamp : 0;
+}
+
+export function chooseNewerEntry(firstEntry, secondEntry) {
+  if (!firstEntry) return secondEntry || null;
+  if (!secondEntry) return firstEntry;
+  const firstSavedAt = entrySavedAtMs(firstEntry);
+  const secondSavedAt = entrySavedAtMs(secondEntry);
+  if (firstSavedAt > secondSavedAt) return firstEntry;
+  if (secondSavedAt > firstSavedAt) return secondEntry;
+  return secondEntry;
+}
+
+export function mergeEntryMapsBySavedAt(localEntries = {}, remoteEntries = {}) {
+  const entries = { ...(localEntries || {}) };
+  const localWins = [];
+  const remoteWins = [];
+  const remoteEntryMap = remoteEntries || {};
+
+  Object.entries(remoteEntryMap).forEach(([dateKey, remoteEntry]) => {
+    const localEntry = localEntries?.[dateKey];
+    const chosen = chooseNewerEntry(localEntry, remoteEntry);
+    if (!chosen) return;
+    entries[dateKey] = chosen;
+    if (localEntry && remoteEntry && chosen === localEntry) localWins.push(dateKey);
+    if (chosen === remoteEntry) remoteWins.push(dateKey);
+  });
+
+  Object.keys(localEntries || {}).forEach((dateKey) => {
+    if (!(dateKey in remoteEntryMap) && localEntries[dateKey]) localWins.push(dateKey);
+  });
+
+  return { entries, localWins, remoteWins };
+}
+
 export function parseChecklistItems(raw = '') {
   if (!raw.trim()) return [];
   return raw
@@ -82,11 +119,63 @@ export function carryForwardTomorrowTasks(entries = {}, targetDate) {
   return sortChecklistByDueDate(current);
 }
 
+function pendingDocCompletionKeys(item, fallbackSourceDate = '') {
+  if (!item || !item.text) return [];
+  const sourceDate = item.sourceDate || fallbackSourceDate || '';
+  const textKey = `text:${item.text.trim()}|due:${item.dueDate || ''}|source:${sourceDate}`;
+  return item.id ? [`id:${item.id}|source:${sourceDate}`, textKey] : [textKey];
+}
+
+function hasPendingDocCompletion(completedKeys, item, fallbackSourceDate = '') {
+  return pendingDocCompletionKeys(item, fallbackSourceDate).some((key) => completedKeys.has(key));
+}
+
+function addPendingDocIdentityKeys(keySet, item, fallbackSourceDate = '') {
+  pendingDocCompletionKeys(item, fallbackSourceDate).forEach((key) => keySet.add(key));
+}
+
+function hasPendingDocIdentity(keySet, item, fallbackSourceDate = '') {
+  return pendingDocCompletionKeys(item, fallbackSourceDate).some((key) => keySet.has(key));
+}
+
+function normalizePendingDocCompletion(item, fallbackSourceDate = '') {
+  if (!item || !item.text || !item.text.trim()) return null;
+  return {
+    id: item.id || '',
+    text: item.text.trim(),
+    dueDate: item.dueDate || '',
+    sourceDate: item.sourceDate || fallbackSourceDate || '',
+    completedAt: item.completedAt || '',
+  };
+}
+
+function collectPendingDocCompletionKeys(entries = {}, targetDate) {
+  const completed = new Set();
+  Object.keys(entries)
+    .filter((dateKey) => dateKey <= targetDate)
+    .forEach((dateKey) => {
+      parseJsonArray(entries[dateKey]?.pendingDocCompletions)
+        .map((item) => normalizePendingDocCompletion(item, dateKey))
+        .filter(Boolean)
+        .forEach((item) => pendingDocCompletionKeys(item, item.sourceDate || dateKey).forEach((key) => completed.add(key)));
+    });
+  return completed;
+}
+
+export function createPendingDocCompletion(item, completedAt = new Date().toISOString(), fallbackSourceDate = '') {
+  const normalized = normalizePendingDocCompletion(item, fallbackSourceDate);
+  if (!normalized) return null;
+  return { ...normalized, completedAt };
+}
+
 export function carryForwardPendingDocs(entries = {}, targetDate) {
+  const completedKeys = collectPendingDocCompletionKeys(entries, targetDate);
   const current = parseJsonArray(entries[targetDate]?.pendingDocItems)
     .map((item) => normalizeTaskItem(item, 'pending-doc'))
-    .filter(Boolean);
-  const existingTexts = new Set(current.map((item) => item.text));
+    .filter(Boolean)
+    .filter((item) => !hasPendingDocCompletion(completedKeys, item, item.sourceDate || targetDate));
+  const existingKeys = new Set();
+  current.forEach((item) => addPendingDocIdentityKeys(existingKeys, item, item.sourceDate || targetDate));
 
   const previousDates = Object.keys(entries)
     .filter((dateKey) => dateKey < targetDate)
@@ -98,9 +187,11 @@ export function carryForwardPendingDocs(entries = {}, targetDate) {
       .filter(Boolean);
 
     pendingDocs.forEach((item) => {
-      if (item.done || existingTexts.has(item.text)) return;
-      existingTexts.add(item.text);
-      current.push({ ...item, sourceDate: item.sourceDate || dateKey, done: false });
+      const sourceDate = item.sourceDate || dateKey;
+      const forwarded = { ...item, sourceDate, done: false };
+      if (item.done || hasPendingDocCompletion(completedKeys, forwarded, sourceDate) || hasPendingDocIdentity(existingKeys, forwarded, sourceDate)) return;
+      addPendingDocIdentityKeys(existingKeys, forwarded, sourceDate);
+      current.push(forwarded);
     });
   });
 
@@ -223,11 +314,15 @@ export function buildLearnedArchiveStats(entries = {}, monthPrefix = '') {
 if (typeof window !== 'undefined') {
   window.LawJournalLogic = {
     parseJsonArray,
+    entrySavedAtMs,
+    chooseNewerEntry,
+    mergeEntryMapsBySavedAt,
     parseChecklistItems,
     serializeChecklistItems,
     normalizeTaskItem,
     sortChecklistByDueDate,
     carryForwardTomorrowTasks,
+    createPendingDocCompletion,
     carryForwardPendingDocs,
     sortDelegatedTasks,
     getLearnedItemsFromEntry,

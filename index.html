@@ -534,6 +534,7 @@
           </div>
           <textarea class="field-textarea short" id="pendingDocs" style="display:none;"></textarea>
           <textarea class="field-textarea short" id="pendingDocItems" style="display:none;"></textarea>
+          <textarea class="field-textarea short" id="pendingDocCompletions" style="display:none;"></textarea>
         </div>
         <div class="field-card">
           <div class="field-label"><span class="field-label-icon">👥</span><span class="field-label-text">직원에게 위임한 일</span><span class="field-label-badge">완료 시 삭제</span></div>
@@ -750,17 +751,47 @@ function getLogic() {
 
 const DEFAULT_LEARNED_TOPICS = ['법리·판례', '실무 팁', '절차적 교훈', '문서작성', '증거/입증', '상담/수임', '커뮤니케이션', '기타'];
 
-// Firebase-first data access
+// Firebase-first data access with _savedAt conflict protection
+function chooseNewerEntryForSync(localEntry, remoteEntry) {
+  const logic = getLogic();
+  if (logic.chooseNewerEntry) return logic.chooseNewerEntry(localEntry, remoteEntry);
+  const savedAtMs = (entry) => {
+    const timestamp = Date.parse(entry?._savedAt || '');
+    return Number.isFinite(timestamp) ? timestamp : 0;
+  };
+  if (!localEntry) return remoteEntry || null;
+  if (!remoteEntry) return localEntry;
+  const localSavedAt = savedAtMs(localEntry);
+  const remoteSavedAt = savedAtMs(remoteEntry);
+  if (localSavedAt > remoteSavedAt) return localEntry;
+  if (remoteSavedAt > localSavedAt) return remoteEntry;
+  return remoteEntry;
+}
+
+async function writeEntryBackToFirebase(dateKey, entry) {
+  if (!fbUser || !entry) return;
+  try {
+    await fbDb.ref(`users/${fbUser.uid}/entries/${dateKey}`).set(entry);
+  } catch(e) {
+    console.warn('Firebase write-back failed', e);
+  }
+}
+
 async function loadEntry(dateKey) {
   if (fbUser) {
     try {
       const snap = await fbDb.ref(`users/${fbUser.uid}/entries/${dateKey}`).once('value');
-      const data = snap.val();
-      if (data) {
-        const entries = getLocalEntries();
-        entries[dateKey] = { ...data, _savedAt: data._savedAt || new Date().toISOString() };
+      const remoteEntry = snap.val();
+      const entries = getLocalEntries();
+      const localEntry = entries[dateKey] || null;
+      const chosen = chooseNewerEntryForSync(localEntry, remoteEntry);
+      if (chosen) {
+        entries[dateKey] = chosen;
         saveLocalEntries(entries);
-        return data;
+        if (localEntry && chosen === localEntry && chosen !== remoteEntry) {
+          await writeEntryBackToFirebase(dateKey, localEntry);
+        }
+        return chosen;
       }
     } catch(e) { console.warn('Firebase load failed, using local', e); }
   }
@@ -780,21 +811,45 @@ async function saveEntryData(data, dateKey) {
   }
 }
 
+function persistCurrentEntrySilently() {
+  const data = collectForm();
+  const dateKey = data.entryDate || currentDate || todayKey();
+  saveEntryData(data, dateKey).catch(e => console.warn('silent save failed', e));
+}
+
 async function bulkSyncFromFirebase() {
   if (!fbUser) return;
   try {
     const snap = await fbDb.ref(`users/${fbUser.uid}/entries`).once('value');
-    const all = snap.val();
-    if (!all) return;
-    const entries = getLocalEntries();
-    let synced = 0;
-    for (const [dateKey, entry] of Object.entries(all)) {
-      entries[dateKey] = entry;
-      synced++;
-    }
-    saveLocalEntries(entries);
-    renderRecentList(); renderCalendarMini(); renderStats();
-    if (synced) showToast(`${synced}건 동기화 완료`);
+    const all = snap.val() || {};
+    const localEntries = getLocalEntries();
+    const logic = getLogic();
+    const syncResult = logic.mergeEntryMapsBySavedAt
+      ? logic.mergeEntryMapsBySavedAt(localEntries, all)
+      : (() => {
+        const entries = { ...localEntries };
+        const localWins = [];
+        const remoteWins = [];
+        Object.entries(all).forEach(([dateKey, remoteEntry]) => {
+          const localEntry = localEntries[dateKey];
+          const chosen = chooseNewerEntryForSync(localEntry, remoteEntry);
+          if (!chosen) return;
+          entries[dateKey] = chosen;
+          if (localEntry && remoteEntry && chosen === localEntry) localWins.push(dateKey);
+          if (chosen === remoteEntry) remoteWins.push(dateKey);
+        });
+        Object.keys(localEntries || {}).forEach((dateKey) => {
+          if (!(dateKey in all) && localEntries[dateKey]) localWins.push(dateKey);
+        });
+        return { entries, localWins, remoteWins };
+      })();
+
+    saveLocalEntries(syncResult.entries);
+    await Promise.all((syncResult.localWins || []).map((dateKey) => writeEntryBackToFirebase(dateKey, syncResult.entries[dateKey])));
+    renderRecentList(); renderCalendarMini(); renderStats(); renderLearnedArchive(); populateLearnedTopicOptions();
+    const pulled = syncResult.remoteWins?.length || 0;
+    const preserved = syncResult.localWins?.length || 0;
+    if (pulled || preserved) showToast(`동기화 완료: ${pulled}건 내려받음, ${preserved}건 로컬 최신 보존`);
   } catch(e) {
     console.warn('Firebase bulk sync failed', e);
   }
@@ -805,6 +860,7 @@ async function bulkSyncFromFirebase() {
 // ══════════════════════════════════════════
 let currentView  = 'write';
 let currentDate  = todayKey();
+let loadEntryRequestSeq = 0;
 let calYear, calMonth;
 let gapiReady    = false;
 let accessToken  = null;
@@ -1161,7 +1217,7 @@ function updateSetupStepNums() {
 // ══════════════════════════════════════════
 
 const FIELDS = ['entryDate','arrivalTime','leaveTime',
-  'todayTasks','todayWork','eventMemos','callNotes','writtenDocs','pendingDocs','pendingDocItems','delegated','delegatedItems','learned','learnedItems','tomorrowTasks','etc'];
+  'todayTasks','todayWork','eventMemos','callNotes','writtenDocs','pendingDocs','pendingDocItems','pendingDocCompletions','delegated','delegatedItems','learned','learnedItems','tomorrowTasks','etc'];
 
 function collectForm() {
   const data = {};
@@ -1169,7 +1225,13 @@ function collectForm() {
   return data;
 }
 function fillForm(data) {
-  FIELDS.forEach(id => { const el=document.getElementById(id); if(el && data[id]!==undefined) el.value=data[id]; });
+  FIELDS.forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    if (data[id] !== undefined) el.value = data[id];
+    else if (id === 'entryDate') el.value = currentDate;
+    else el.value = '';
+  });
   renderTodayTasksList();
   renderTomorrowTasksList();
   renderPendingDocsList();
@@ -1319,6 +1381,10 @@ function syncPendingDocsField(items) {
   document.getElementById('pendingDocs').value = items.map(item => `${item.text}${item.dueDate ? ` (${item.dueDate})` : ''}`).join('\n');
 }
 
+function syncPendingDocCompletionsField(items) {
+  document.getElementById('pendingDocCompletions').value = JSON.stringify(items || []);
+}
+
 function syncDelegatedFields(items) {
   document.getElementById('delegatedItems').value = JSON.stringify(items);
   document.getElementById('delegated').value = items.map(item => {
@@ -1350,6 +1416,46 @@ function getPendingDocItems() {
   const parsed = parseStructuredItems('pendingDocItems', 'pendingDocs');
   const normalized = parsed.map(item => logic.normalizeTaskItem ? logic.normalizeTaskItem(item, 'pending-doc') : item).filter(Boolean);
   return logic.sortChecklistByDueDate ? logic.sortChecklistByDueDate(normalized) : normalized;
+}
+
+function getPendingDocCompletions() {
+  return parseStructuredItems('pendingDocCompletions')
+    .map(item => ({
+      id: item.id || '',
+      text: (item.text || '').trim(),
+      dueDate: item.dueDate || '',
+      sourceDate: item.sourceDate || '',
+      completedAt: item.completedAt || '',
+      reason: item.reason || 'submitted',
+    }))
+    .filter(item => item.text);
+}
+
+function pendingDocCompletionLocalKeys(item) {
+  const sourceDate = item.sourceDate || '';
+  const textKey = `text:${item.text}|due:${item.dueDate || ''}|source:${sourceDate}`;
+  return item.id ? [`id:${item.id}|source:${sourceDate}`, textKey] : [textKey];
+}
+
+function pendingDocCompletionsOverlap(a, b) {
+  const bKeys = new Set(pendingDocCompletionLocalKeys(b));
+  return pendingDocCompletionLocalKeys(a).some(key => bKeys.has(key));
+}
+
+function rememberPendingDocCompletion(item, reason = 'submitted') {
+  if (!item || !item.text) return;
+  const logic = getLogic();
+  const dateKey = document.getElementById('entryDate')?.value || currentDate || todayKey();
+  const completion = logic.createPendingDocCompletion
+    ? logic.createPendingDocCompletion(item, new Date().toISOString(), item.sourceDate || dateKey)
+    : { id: item.id || '', text: item.text, dueDate: item.dueDate || '', sourceDate: item.sourceDate || dateKey, completedAt: new Date().toISOString() };
+  if (!completion) return;
+  completion.reason = reason;
+  const completions = getPendingDocCompletions();
+  if (!completions.some(existing => pendingDocCompletionsOverlap(existing, completion))) {
+    completions.push(completion);
+    syncPendingDocCompletionsField(completions);
+  }
 }
 
 function getDelegatedItems() {
@@ -1445,7 +1551,11 @@ async function mergeTodayTasksFromPrevious(dateKey) {
 async function mergePendingDocsFromPrevious(dateKey) {
   const logic = getLogic();
   const entries = getLocalEntries();
-  entries[dateKey] = { ...(entries[dateKey] || {}), pendingDocItems: document.getElementById('pendingDocItems').value };
+  entries[dateKey] = {
+    ...(entries[dateKey] || {}),
+    pendingDocItems: document.getElementById('pendingDocItems').value,
+    pendingDocCompletions: document.getElementById('pendingDocCompletions').value,
+  };
   const merged = logic.carryForwardPendingDocs ? logic.carryForwardPendingDocs(entries, dateKey) : getPendingDocItems();
   syncPendingDocsField(merged);
   renderPendingDocsList();
@@ -1463,6 +1573,7 @@ function addTodayTask() {
   renderTodayTasksList();
   input.value = '';
   document.getElementById('todayTasksDueDate').value = '';
+  persistCurrentEntrySilently();
 }
 
 function addTomorrowTask() {
@@ -1477,6 +1588,7 @@ function addTomorrowTask() {
   renderTomorrowTasksList();
   input.value = '';
   document.getElementById('tomorrowTasksDueDate').value = '';
+  persistCurrentEntrySilently();
 }
 
 function addPendingDocItem() {
@@ -1491,6 +1603,7 @@ function addPendingDocItem() {
   renderPendingDocsList();
   input.value = '';
   document.getElementById('pendingDocsDueDate').value = '';
+  persistCurrentEntrySilently();
 }
 
 let editingDelegatedId = null;
@@ -1513,6 +1626,7 @@ function addDelegatedItem() {
   document.getElementById('delegatedAssignee').value = '';
   input.value = '';
   document.getElementById('delegatedDueDate').value = '';
+  persistCurrentEntrySilently();
 }
 
 function editDelegatedItem(idx) {
@@ -1531,6 +1645,7 @@ function removeTodayTask(idx) {
   items.splice(idx, 1);
   syncTodayTasksField(items);
   renderTodayTasksList();
+  persistCurrentEntrySilently();
 }
 
 function removeTomorrowTask(idx) {
@@ -1538,13 +1653,16 @@ function removeTomorrowTask(idx) {
   items.splice(idx, 1);
   syncTomorrowTasksField(items);
   renderTomorrowTasksList();
+  persistCurrentEntrySilently();
 }
 
-function removePendingDocItem(idx) {
+function removePendingDocItem(idx, reason = 'removed') {
   const items = getPendingDocItems();
-  items.splice(idx, 1);
+  const [removed] = items.splice(idx, 1);
+  if (removed) rememberPendingDocCompletion(removed, reason);
   syncPendingDocsField(items);
   renderPendingDocsList();
+  persistCurrentEntrySilently();
 }
 
 function toggleTodayTask(idx, checkbox) {
@@ -1571,7 +1689,7 @@ function toggleTomorrowTask(idx, checkbox) {
 
 function togglePendingDocItem(idx, checkbox) {
   const row = checkbox ? checkbox.closest('.checklist-item') : null;
-  const doDelete = () => removePendingDocItem(idx);
+  const doDelete = () => removePendingDocItem(idx, 'submitted');
   if (row) {
     row.style.opacity = '0';
     setTimeout(doDelete, 220);
@@ -1622,6 +1740,7 @@ function removeDelegatedItem(idx) {
   items.splice(idx, 1);
   syncDelegatedFields(items);
   renderDelegatedList();
+  persistCurrentEntrySilently();
 }
 
 function renderLearnedItemsList() {
@@ -1706,6 +1825,7 @@ function addLearnedItem() {
   document.getElementById('learnedTitle').value = '';
   document.getElementById('learnedContent').value = '';
   updateLearnedTopicHints();
+  persistCurrentEntrySilently();
 }
 
 function removeLearnedItem(idx) {
@@ -1715,6 +1835,7 @@ function removeLearnedItem(idx) {
   renderLearnedItemsList();
   populateLearnedTopicOptions();
   updateLearnedTopicHints();
+  persistCurrentEntrySilently();
 }
 
 function renderLearnedArchive() {
@@ -1760,8 +1881,10 @@ function renderLearnedArchive() {
 }
 
 async function loadEntryToForm(dateKey) {
+  const requestSeq = ++loadEntryRequestSeq;
   currentDate = dateKey;
   const data = await loadEntry(dateKey);
+  if (requestSeq !== loadEntryRequestSeq || currentDate !== dateKey) return;
   if (data) {
     fillForm(data);
   } else {
@@ -1779,8 +1902,11 @@ async function loadEntryToForm(dateKey) {
     renderLearnedItemsList();
     populateLearnedTopicOptions();
   }
+  if (requestSeq !== loadEntryRequestSeq || currentDate !== dateKey) return;
   await mergeTodayTasksFromPrevious(dateKey);
+  if (requestSeq !== loadEntryRequestSeq || currentDate !== dateKey) return;
   await mergePendingDocsFromPrevious(dateKey);
+  if (requestSeq !== loadEntryRequestSeq || currentDate !== dateKey) return;
   updateTopbar();
   updateLearnedTopicHints();
   populateLearnedTopicOptions();
@@ -2236,14 +2362,14 @@ function exportAllCSV() {
 // ══════════════════════════════════════════
 //  INIT
 // ══════════════════════════════════════════
-function initApp() {
+function initApp(options = {}) {
   const now=new Date(); calYear=now.getFullYear(); calMonth=now.getMonth();
   document.getElementById('entryDate').value=todayKey();
   document.getElementById('arrivalTime').value='09:00';
   document.getElementById('leaveTime').value='18:00';
   document.getElementById('learnedTopic').addEventListener('change', updateLearnedTopicHints);
   document.getElementById('learnedArchiveSearch')?.addEventListener('input', renderLearnedArchive);
-  loadEntryToForm(todayKey());
+  if (!options.skipInitialLoad) loadEntryToForm(todayKey()).catch(e => console.warn('initial load failed', e));
   renderCalendarMini(); renderRecentList(); updateTopbar(); renderStats(); populateLearnedTopicOptions(); renderLearnedArchive();
   updateSetupStepNums();
   // 버전 표시 (GitHub 최신 커밋 해시)
@@ -2258,8 +2384,10 @@ fbAuth.onAuthStateChanged(user => {
   if (user) {
     document.getElementById('firebaseAuthOverlay').style.display = 'none';
     document.getElementById('fbLogoutBtn').style.display = '';
-    initApp();
-    bulkSyncFromFirebase();
+    initApp({ skipInitialLoad: true });
+    bulkSyncFromFirebase()
+      .catch(e => console.warn('post-login sync failed', e))
+      .finally(() => loadEntryToForm(currentDate || todayKey()).catch(e => console.warn('post-login reload failed', e)));
     // 페이지 새로고침 시 저장된 Google token 복원
     restoreGoogleToken();
   } else {
