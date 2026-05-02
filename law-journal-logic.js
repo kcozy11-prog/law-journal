@@ -280,8 +280,14 @@ export function buildLearnedTopicOptions(entries = {}) {
   return buildLearnedTopicGroups(entries).map((group) => group.topic);
 }
 
-export function filterLearnedItemsByTopic(entries = {}, topic = '') {
-  return buildLearnedTopicGroups(entries).find((group) => group.topic === topic)?.items || [];
+export function filterLearnedItemsByTopic(entries = {}, topic = '', options = {}) {
+  const excludeDates = new Set(
+    [options.excludeDate, ...(options.excludeDates || [])]
+      .filter(Boolean)
+      .map(String)
+  );
+  return (buildLearnedTopicGroups(entries).find((group) => group.topic === topic)?.items || [])
+    .filter((item) => !excludeDates.has(item.date));
 }
 
 

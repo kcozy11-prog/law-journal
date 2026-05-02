@@ -680,7 +680,7 @@
 <div class="toast" id="toast"></div>
 <div id="floatingTooltip"></div>
 
-<script type="module" src="./law-journal-logic.js"></script>
+<script type="module" src="./law-journal-logic.js?v=20260502-learned-hints"></script>
 <script>
 // ══════════════════════════════════════════
 //  FIREBASE INIT
@@ -1788,7 +1788,9 @@ function updateLearnedTopicHints() {
   const dateKey = document.getElementById('entryDate').value || currentDate;
   entries[dateKey] = { ...(entries[dateKey] || {}), learnedItems: document.getElementById('learnedItems').value, learned: document.getElementById('learned').value };
   const logic = getLogic();
-  const items = logic.filterLearnedItemsByTopic ? logic.filterLearnedItemsByTopic(entries, topic) : [];
+  const items = logic.filterLearnedItemsByTopic
+    ? logic.filterLearnedItemsByTopic(entries, topic, { excludeDate: dateKey })
+    : [];
   const filtered = items.slice(0, 5);
   if (!filtered.length) {
     hintEl.innerHTML = '<div style="font-size:12px;color:var(--ink3);padding:4px 0;">이 주제의 기존 메모가 아직 없습니다.</div>';

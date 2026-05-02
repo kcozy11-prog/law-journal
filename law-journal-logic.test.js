@@ -7,6 +7,7 @@ import {
   carryForwardPendingDocs,
   sortDelegatedTasks,
   buildLearnedTopicGroups,
+  filterLearnedItemsByTopic,
   searchLearnedItems,
   buildLearnedArchiveStats,
   chooseNewerEntry,
@@ -142,6 +143,25 @@ test('buildLearnedTopicGroups groups learned notes by topic and keeps date label
   assert.deepEqual(groups.map((group) => group.topic), ['법리·판례', '실무 팁']);
   assert.equal(groups[0].items[0].date, '2026-04-15');
   assert.equal(groups[0].items[1].date, '2026-04-14');
+});
+
+test('filterLearnedItemsByTopic can exclude the current entry from same-topic hints', () => {
+  const entries = {
+    '2026-04-14': {
+      learnedItems: JSON.stringify([
+        { id: 'l1', topic: '실무 팁', subtopic: '', title: '과거 메모', content: '기존 기록' },
+      ]),
+    },
+    '2026-04-15': {
+      learnedItems: JSON.stringify([
+        { id: 'l2', topic: '실무 팁', subtopic: '', title: '오늘 추가한 메모', content: '현재 입력 중인 기록' },
+      ]),
+    },
+  };
+
+  const results = filterLearnedItemsByTopic(entries, '실무 팁', { excludeDate: '2026-04-15' });
+
+  assert.deepEqual(results.map((item) => item.title), ['과거 메모']);
 });
 
 test('searchLearnedItems filters by query across title and content', () => {
