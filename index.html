@@ -522,7 +522,9 @@
         </div>
         <div class="field-card">
           <div class="field-label"><span class="field-label-icon">📄</span><span class="field-label-text">제출한 서면</span><span class="field-label-badge green">완료</span></div>
-          <textarea class="field-textarea short" id="writtenDocs" placeholder="[서면 종류] 준비서면 / 답변서 / 항소이유서&#10;[사건번호] 2024가합1234&#10;[제출처] ○○법원 / 전자소송&#10;[접수 확인] 완료 / 미확인"></textarea>
+          <div id="submittedDocsList" class="checklist-list" style="padding:8px 16px 4px;"></div>
+          <textarea class="field-textarea short" id="writtenDocs" placeholder="수동으로 추가할 제출 서면이 있으면 입력하세요&#10;[서면 종류] 준비서면 / 답변서 / 항소이유서&#10;[사건번호] 2024가합1234&#10;[제출처] ○○법원 / 전자소송&#10;[접수 확인] 완료 / 미확인"></textarea>
+          <textarea class="field-textarea short" id="submittedDocItems" style="display:none;"></textarea>
         </div>
         <div class="field-card">
           <div class="field-label"><span class="field-label-icon">📮</span><span class="field-label-text">제출 예정 서면</span><span class="field-label-badge red">체크 전까지 이월</span></div>
@@ -680,7 +682,7 @@
 <div class="toast" id="toast"></div>
 <div id="floatingTooltip"></div>
 
-<script type="module" src="./law-journal-logic.js?v=20260502-learned-hints"></script>
+<script type="module" src="./law-journal-logic.js?v=20260503-submitted-docs"></script>
 <script>
 // ══════════════════════════════════════════
 //  FIREBASE INIT
@@ -804,7 +806,7 @@ async function saveEntryData(data, dateKey) {
   const entries = getLocalEntries();
   entries[dateKey] = entry;
   saveLocalEntries(entries);
-  renderRecentList(); renderCalendarMini(); renderStats(); renderLearnedArchive(); populateLearnedTopicOptions();
+  renderRecentList(); renderCalendarMini(); renderStats(); renderSubmittedDocsList(); renderLearnedArchive(); populateLearnedTopicOptions();
   if (fbUser) {
     try { await fbDb.ref(`users/${fbUser.uid}/entries/${dateKey}`).set(entry); }
     catch(e) { console.warn('Firebase save failed', e); showToast('⚠️ Firebase 저장 실패 — 로컬에는 저장됨'); }
@@ -846,7 +848,7 @@ async function bulkSyncFromFirebase() {
 
     saveLocalEntries(syncResult.entries);
     await Promise.all((syncResult.localWins || []).map((dateKey) => writeEntryBackToFirebase(dateKey, syncResult.entries[dateKey])));
-    renderRecentList(); renderCalendarMini(); renderStats(); renderLearnedArchive(); populateLearnedTopicOptions();
+    renderRecentList(); renderCalendarMini(); renderStats(); renderSubmittedDocsList(); renderLearnedArchive(); populateLearnedTopicOptions();
     const pulled = syncResult.remoteWins?.length || 0;
     const preserved = syncResult.localWins?.length || 0;
     if (pulled || preserved) showToast(`동기화 완료: ${pulled}건 내려받음, ${preserved}건 로컬 최신 보존`);
@@ -1217,7 +1219,7 @@ function updateSetupStepNums() {
 // ══════════════════════════════════════════
 
 const FIELDS = ['entryDate','arrivalTime','leaveTime',
-  'todayTasks','todayWork','eventMemos','callNotes','writtenDocs','pendingDocs','pendingDocItems','pendingDocCompletions','delegated','delegatedItems','learned','learnedItems','tomorrowTasks','etc'];
+  'todayTasks','todayWork','eventMemos','callNotes','writtenDocs','submittedDocItems','pendingDocs','pendingDocItems','pendingDocCompletions','delegated','delegatedItems','learned','learnedItems','tomorrowTasks','etc'];
 
 function collectForm() {
   const data = {};
@@ -1234,6 +1236,7 @@ function fillForm(data) {
   });
   renderTodayTasksList();
   renderTomorrowTasksList();
+  renderSubmittedDocsList();
   renderPendingDocsList();
   renderDelegatedList();
   renderLearnedItemsList();
@@ -1383,6 +1386,125 @@ function syncPendingDocsField(items) {
 
 function syncPendingDocCompletionsField(items) {
   document.getElementById('pendingDocCompletions').value = JSON.stringify(items || []);
+}
+
+function syncSubmittedDocsField(items) {
+  document.getElementById('submittedDocItems').value = JSON.stringify(items || []);
+}
+
+function getSubmittedDocItems() {
+  const logic = getLogic();
+  const dateKey = document.getElementById('entryDate')?.value || currentDate || todayKey();
+  return parseStructuredItems('submittedDocItems')
+    .map(item => logic.normalizeSubmittedDocItem ? logic.normalizeSubmittedDocItem(item, item.submittedDate || dateKey, item.sourceDate || dateKey) : item)
+    .filter(Boolean);
+}
+
+function submittedDocLocalKeys(item) {
+  if (!item || !item.text) return [];
+  const submittedDate = item.submittedDate || '';
+  const sourceDate = item.sourceDate || '';
+  const textKey = `text:${item.text.trim()}|due:${item.dueDate || ''}|submitted:${submittedDate}|source:${sourceDate}`;
+  const keys = [textKey];
+  if (item.id) keys.push(`id:${item.id}`);
+  if (item.pendingId) keys.push(`pending:${item.pendingId}|submitted:${submittedDate}`);
+  return keys;
+}
+
+function submittedDocsOverlap(a, b) {
+  const bKeys = new Set(submittedDocLocalKeys(b));
+  return submittedDocLocalKeys(a).some(key => bKeys.has(key));
+}
+
+function upsertSubmittedDocItem(nextItem) {
+  if (!nextItem || !nextItem.text) return null;
+  const items = getSubmittedDocItems();
+  const existingIndex = items.findIndex(item => submittedDocsOverlap(item, nextItem));
+  if (existingIndex >= 0) {
+    const existing = items[existingIndex];
+    items[existingIndex] = {
+      ...existing,
+      ...nextItem,
+      cmCaseId: nextItem.cmCaseId || existing.cmCaseId || '',
+      cmSyncedAt: nextItem.cmSyncedAt || existing.cmSyncedAt || '',
+      cmProgressContent: nextItem.cmProgressContent || existing.cmProgressContent || '',
+    };
+  } else {
+    items.push(nextItem);
+  }
+  syncSubmittedDocsField(items);
+  return existingIndex >= 0 ? items[existingIndex] : nextItem;
+}
+
+function rememberSubmittedDocItem(item) {
+  if (!item || !item.text) return null;
+  const logic = getLogic();
+  const dateKey = document.getElementById('entryDate')?.value || currentDate || todayKey();
+  const nowIso = new Date().toISOString();
+  const submittedItem = logic.createSubmittedDocItem
+    ? logic.createSubmittedDocItem(item, dateKey, nowIso, item.sourceDate || dateKey)
+    : { id: `submitted_${item.id || Date.now()}_${dateKey}`, pendingId: item.id || '', text: item.text, dueDate: item.dueDate || '', sourceDate: item.sourceDate || dateKey, submittedDate: dateKey, completedAt: nowIso };
+  return upsertSubmittedDocItem(submittedItem);
+}
+
+function collectVisibleSubmittedDocItems(targetDate) {
+  const dateKey = targetDate || document.getElementById('entryDate')?.value || currentDate || todayKey();
+  const entries = getEntries();
+  const currentFormDate = document.getElementById('entryDate')?.value || currentDate;
+  if (currentFormDate === dateKey) {
+    entries[dateKey] = {
+      ...(entries[dateKey] || {}),
+      submittedDocItems: document.getElementById('submittedDocItems')?.value || entries[dateKey]?.submittedDocItems || '',
+    };
+  }
+  const logic = getLogic();
+  return logic.collectVisibleSubmittedDocs ? logic.collectVisibleSubmittedDocs(entries, dateKey) : getSubmittedDocItems();
+}
+
+function submittedDocDateLabel(item) {
+  const logic = getLogic();
+  const date = item.submittedDate || '';
+  return logic.formatKoreanMonthDay ? logic.formatKoreanMonthDay(date) : date;
+}
+
+function renderSubmittedDocsList() {
+  const list = document.getElementById('submittedDocsList');
+  if (!list) return;
+  const dateKey = document.getElementById('entryDate')?.value || currentDate || todayKey();
+  const visibleItems = collectVisibleSubmittedDocItems(dateKey);
+  syncSubmittedDocsField(getSubmittedDocItems());
+  if (!visibleItems.length) {
+    list.innerHTML = '<div style="font-size:12px;color:var(--ink3);padding:4px 0;">체크한 제출 서면은 제출일과 다음날까지만 여기에 표시됩니다.</div>';
+    return;
+  }
+  list.innerHTML = visibleItems.map(item => {
+    const badges = [
+      `<span class="task-badge due">제출 ${escapeHtml(submittedDocDateLabel(item))}</span>`,
+      item.dueDate ? `<span class="task-badge">기한 ${escapeHtml(item.dueDate)}</span>` : '',
+      item.sourceDate && item.sourceDate !== item.submittedDate ? `<span class="task-badge">이월 ${escapeHtml(item.sourceDate.slice(5))}</span>` : '',
+      item.cmSyncedAt ? '<span class="task-badge green">케이스매니저 반영</span>' : '',
+    ].filter(Boolean).join('');
+    return `<div class="checklist-item done submitted-doc-item">
+      <span style="font-size:13px;line-height:1;">✅</span>
+      <span class="checklist-text">${escapeHtml(item.text)}</span>
+      <div class="task-meta">${badges}</div>
+    </div>`;
+  }).join('');
+}
+
+function formatSubmittedDocsForExport(entry = {}, dateKey = '', visibleOnly = false) {
+  const logic = getLogic();
+  const submittedItems = visibleOnly && logic.collectVisibleSubmittedDocs
+    ? logic.collectVisibleSubmittedDocs({ ...getEntries(), [dateKey]: { ...(entry || {}) } }, dateKey)
+    : (logic.parseJsonArray ? logic.parseJsonArray(entry.submittedDocItems || '[]') : [])
+        .map(item => logic.normalizeSubmittedDocItem ? logic.normalizeSubmittedDocItem(item, item.submittedDate || dateKey, item.sourceDate || dateKey) : item)
+        .filter(Boolean);
+  return submittedItems.map(item => `- ${item.text}${item.submittedDate ? ` (제출 ${item.submittedDate})` : ''}${item.cmProgressContent ? ` / ${item.cmProgressContent}` : ''}`).join('\n');
+}
+
+function combineSubmittedAndWrittenDocs(entry = {}, dateKey = '', options = {}) {
+  const submitted = formatSubmittedDocsForExport(entry, dateKey, Boolean(options.visibleOnly));
+  return [submitted, entry.writtenDocs || ''].filter(v => v && v.trim()).join('\n');
 }
 
 function syncDelegatedFields(items) {
@@ -1659,10 +1781,20 @@ function removeTomorrowTask(idx) {
 function removePendingDocItem(idx, reason = 'removed') {
   const items = getPendingDocItems();
   const [removed] = items.splice(idx, 1);
-  if (removed) rememberPendingDocCompletion(removed, reason);
+  let submittedItem = null;
+  if (removed) {
+    rememberPendingDocCompletion(removed, reason);
+    if (reason === 'submitted') submittedItem = rememberSubmittedDocItem(removed);
+  }
   syncPendingDocsField(items);
   renderPendingDocsList();
+  renderSubmittedDocsList();
   persistCurrentEntrySilently();
+  if (submittedItem) {
+    showToast('📄 제출한 서면으로 이동됨');
+    syncSubmittedDocToCaseManagerAndPersist(submittedItem, submittedItem.submittedDate || document.getElementById('entryDate')?.value || currentDate || todayKey())
+      .catch(e => console.warn('[CM연동] 제출 서면 연동 실패:', e));
+  }
 }
 
 function toggleTodayTask(idx, checkbox) {
@@ -1899,6 +2031,7 @@ async function loadEntryToForm(dateKey) {
     });
     renderTodayTasksList();
     renderTomorrowTasksList();
+    renderSubmittedDocsList();
     renderPendingDocsList();
     renderDelegatedList();
     renderLearnedItemsList();
@@ -1932,7 +2065,7 @@ async function getCmCases() {
   if (!fbUser) return [];
   try {
     const snap = await cmDb.collection('users').doc(fbUser.uid).collection('cases').get();
-    return snap.docs.map(d => d.data());
+    return snap.docs.map(d => ({ id: d.id, ...d.data() }));
   } catch(e) {
     console.warn('[CM연동] 사건 목록 조회 실패:', e);
     return [];
@@ -1962,6 +2095,126 @@ function matchTextToCmCase(text, cases) {
   return null;
 }
 
+function cmCaseProgressTitle(c = {}) {
+  return c.title || c.caseName || c.caseNumber || c.client || '관련 사건';
+}
+
+function buildSubmittedDocCmProgress(submittedItem, matchedCase, dateKey) {
+  const logic = getLogic();
+  const submittedDate = submittedItem.submittedDate || dateKey;
+  return logic.buildSubmittedDocProgressContent
+    ? logic.buildSubmittedDocProgressContent(submittedDate, cmCaseProgressTitle(matchedCase), submittedItem.text)
+    : `${submittedDate} ${cmCaseProgressTitle(matchedCase)} ${submittedItem.text} 제출`.replace(/\s+/g, ' ').trim();
+}
+
+async function syncSubmittedDocToCaseManager(submittedItem, dateKey, options = {}) {
+  if (!fbUser || !submittedItem || !submittedItem.text) return { status: 'skipped' };
+  if (submittedItem.cmSyncedAt && submittedItem.cmProgressContent && submittedItem.cmCaseId) return { status: 'already-synced', item: submittedItem };
+
+  const cases = options.cases || await getCmCases();
+  if (!cases.length) return { status: 'no-cases' };
+
+  const matchSource = [submittedItem.text, submittedItem.dueDate, submittedItem.sourceDate].filter(Boolean).join(' ');
+  const matched = matchTextToCmCase(matchSource, cases);
+  if (!matched || !matched.id) return { status: 'unmatched', item: submittedItem };
+
+  const submittedDate = submittedItem.submittedDate || dateKey;
+  const progressContent = buildSubmittedDocCmProgress(submittedItem, matched, submittedDate);
+  const existing = (matched.timeline || []).find(t => t.date === submittedDate && t.content === progressContent);
+  const syncedAt = new Date().toISOString();
+
+  if (!existing) {
+    const caseRef = cmDb.collection('users').doc(fbUser.uid).collection('cases').doc(matched.id);
+    await caseRef.update({
+      timeline: firebase.firestore.FieldValue.arrayUnion({
+        id: Date.now() + Math.floor(Math.random()*1000),
+        date: submittedDate,
+        content: progressContent,
+        source: 'law-journal-submitted-doc',
+      })
+    });
+    matched.timeline = [...(matched.timeline || []), { date: submittedDate, content: progressContent }];
+  }
+
+  return {
+    status: existing ? 'already-in-case-manager' : 'synced',
+    item: {
+      ...submittedItem,
+      cmCaseId: matched.id,
+      cmSyncedAt: syncedAt,
+      cmProgressContent: progressContent,
+    },
+    caseTitle: cmCaseProgressTitle(matched),
+    progressContent,
+  };
+}
+
+function updateSubmittedDocSyncState(syncedItem, dateKey = '') {
+  if (!syncedItem || !syncedItem.text) return false;
+  const targetDate = dateKey || syncedItem.submittedDate || document.getElementById('entryDate')?.value || currentDate || todayKey();
+  const currentFormDate = document.getElementById('entryDate')?.value || currentDate;
+  const logic = getLogic();
+  const normalize = (item) => logic.normalizeSubmittedDocItem ? logic.normalizeSubmittedDocItem(item, item.submittedDate || targetDate, item.sourceDate || targetDate) : item;
+
+  if (currentFormDate === targetDate && document.getElementById('submittedDocItems')) {
+    const items = getSubmittedDocItems();
+    const index = items.findIndex(item => submittedDocsOverlap(item, syncedItem));
+    if (index < 0) return false;
+    items[index] = { ...items[index], ...syncedItem };
+    syncSubmittedDocsField(items);
+    renderSubmittedDocsList();
+    return true;
+  }
+
+  const entries = getEntries();
+  const entry = entries[targetDate] || {};
+  const items = (logic.parseJsonArray ? logic.parseJsonArray(entry.submittedDocItems || '[]') : [])
+    .map(normalize)
+    .filter(Boolean);
+  const index = items.findIndex(item => submittedDocsOverlap(item, syncedItem));
+  if (index < 0) return false;
+  items[index] = { ...items[index], ...syncedItem };
+  entries[targetDate] = { ...entry, submittedDocItems: JSON.stringify(items), _savedAt: new Date().toISOString() };
+  saveLocalEntries(entries);
+  writeEntryBackToFirebase(targetDate, entries[targetDate]);
+  return true;
+}
+
+async function syncSubmittedDocToCaseManagerAndPersist(submittedItem, dateKey, options = {}) {
+  const result = await syncSubmittedDocToCaseManager(submittedItem, dateKey, options);
+  if (result.item && result.item.cmSyncedAt) {
+    const targetDate = result.item.submittedDate || dateKey;
+    const updated = updateSubmittedDocSyncState(result.item, targetDate);
+    const currentFormDate = document.getElementById('entryDate')?.value || currentDate;
+    if (updated && currentFormDate === targetDate) await saveEntryData(collectForm(), targetDate);
+  }
+  if (result.status === 'synced') showToast(`🔗 케이스매니저 진행경과 반영 — ${result.caseTitle}`);
+  else if (result.status === 'already-in-case-manager') showToast(`🔗 케이스매니저 진행경과 이미 있음 — ${result.caseTitle}`);
+  else if (result.status === 'unmatched') showToast('📄 제출한 서면으로 이동됨 — 케이스매니저 사건명/사건번호 매칭 필요');
+  else if (result.status === 'no-cases') showToast('📄 제출한 서면으로 이동됨 — 케이스매니저 사건 목록 없음');
+  return result;
+}
+
+async function syncSubmittedDocsFromEntryToCaseManager(data, dateKey, cases) {
+  const logic = getLogic();
+  const submittedItems = (logic.parseJsonArray ? logic.parseJsonArray(data.submittedDocItems || '[]') : [])
+    .map(item => logic.normalizeSubmittedDocItem ? logic.normalizeSubmittedDocItem(item, item.submittedDate || dateKey, item.sourceDate || dateKey) : item)
+    .filter(item => item && item.text && !item.cmSyncedAt);
+  let synced = 0;
+  for (const item of submittedItems) {
+    const result = await syncSubmittedDocToCaseManager(item, item.submittedDate || dateKey, { cases });
+    if (result.item && result.item.cmSyncedAt) {
+      const targetDate = result.item.submittedDate || dateKey;
+      if (updateSubmittedDocSyncState(result.item, targetDate)) {
+        const currentFormDate = document.getElementById('entryDate')?.value || currentDate;
+        if (currentFormDate === targetDate) await saveEntryData(collectForm(), targetDate);
+      }
+      synced++;
+    }
+  }
+  return synced;
+}
+
 async function syncToCaseManager(data, dateKey) {
   if (!fbUser) return;
   const cases = await getCmCases();
@@ -1969,6 +2222,7 @@ async function syncToCaseManager(data, dateKey) {
 
   const today = dateKey;
   let synced = 0;
+  synced += await syncSubmittedDocsFromEntryToCaseManager(data, dateKey, cases);
 
   const delegatedLines = (() => {
     const logic = getLogic();
@@ -2077,7 +2331,7 @@ function exportEntry() {
     `## 오늘 한 일\n${data.todayWork||'-'}`,``,
     `## 일정 메모\n${(()=>{ try { return JSON.parse(data.eventMemos||'[]').map(m=>(m.title?'['+m.title+'] ':'')+(m.memo||'-')).join('\n\n'); } catch { return '-'; } })()}`,``,
     `## 통화 내용\n${data.callNotes||'-'}`,``,
-    `## 제출한 서면\n${data.writtenDocs||'-'}`,``,
+    `## 제출한 서면\n${combineSubmittedAndWrittenDocs(data, data.entryDate || todayKey(), { visibleOnly: true }) || '-'}`,``,
     `## 제출 예정 서면\n${formatChecklist(data.pendingDocItems)}`,``,
     `## 직원 위임\n${formatChecklist(data.delegatedItems)}`,``,
     `## 오늘 배운 점\n${data.learned||'-'}`,``,
@@ -2184,7 +2438,7 @@ function fullSearch(q) {
   countEl.textContent=`${hits.length}건`;
   if(!hits.length){results.innerHTML='<div class="empty-state"><div class="es-icon">🗂</div><p>검색 결과 없음</p></div>';return;}
   const hl=s=>{const escaped=escapeHtml(s||'');return escaped.replace(new RegExp(escapeHtml(q).replace(/[.*+?^${}()|[\]\\]/g,'\\$&'),'gi'),m=>`<mark>${m}</mark>`);};
-  const fLabels={todayTasks:'오늘 할 일',todayWork:'오늘 한 일',eventMemos:'일정 메모',callNotes:'통화',writtenDocs:'제출한 서면',pendingDocs:'제출 예정',pendingDocItems:'제출 예정',delegated:'위임',delegatedItems:'위임',learned:'배운 점',learnedItems:'배운 점',tomorrowTasks:'내일 할 일',etc:'기타'};
+  const fLabels={todayTasks:'오늘 할 일',todayWork:'오늘 한 일',eventMemos:'일정 메모',callNotes:'통화',writtenDocs:'제출한 서면',submittedDocItems:'제출한 서면',pendingDocs:'제출 예정',pendingDocItems:'제출 예정',delegated:'위임',delegatedItems:'위임',learned:'배운 점',learnedItems:'배운 점',tomorrowTasks:'내일 할 일',etc:'기타'};
   results.innerHTML=hits.map(([k,e])=>{
     const tags=Object.entries(fLabels).filter(([f])=>(e[f]||'').toLowerCase().includes(lq)).map(([,l])=>`<span class="sr-field-tag">${l}</span>`).join('');
     const snippet=Object.entries(fLabels).map(([f,l])=>{
@@ -2336,7 +2590,7 @@ function exportAllCSV() {
   if (!keys.length) { showToast('내보낼 일지가 없습니다'); return; }
   const logic = getLogic();
   const headers = ['날짜','출근','퇴근','오늘할일','오늘한일','일정메모','통화내용','제출한서면','제출예정서면','직원위임','배운점','내일할일','기타'];
-  const fieldKeys = ['entryDate','arrivalTime','leaveTime','todayTasks','todayWork','eventMemos','callNotes','writtenDocs','pendingDocItems','delegatedItems','learned','tomorrowTasks','etc'];
+  const fieldKeys = ['entryDate','arrivalTime','leaveTime','todayTasks','todayWork','eventMemos','callNotes','submittedAndWrittenDocs','pendingDocItems','delegatedItems','learned','tomorrowTasks','etc'];
   const esc = v => { const s=String(v||''); return (s.includes(',')||s.includes('"')||s.includes('\n')) ? '"'+s.replace(/"/g,'""')+'"' : s; };
   const fmtMemos = v => { try { return JSON.parse(v||'[]').map(m=>(m.title?'['+m.title+'] ':'')+m.memo).filter(Boolean).join('\n'); } catch { return v||''; } };
   const fmtChecklist = v => {
@@ -2349,6 +2603,7 @@ function exportAllCSV() {
       const e=entries[k];
       return fieldKeys.map(f =>
         f==='eventMemos' ? esc(fmtMemos(e[f])) :
+        f==='submittedAndWrittenDocs' ? esc(combineSubmittedAndWrittenDocs(e, k)) :
         (f==='todayTasks'||f==='pendingDocItems'||f==='delegatedItems'||f==='tomorrowTasks') ? esc(fmtChecklist(e[f])) :
         esc(e[f])
       ).join(',');

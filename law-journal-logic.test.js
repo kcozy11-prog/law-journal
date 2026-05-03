@@ -12,6 +12,10 @@ import {
   buildLearnedArchiveStats,
   chooseNewerEntry,
   mergeEntryMapsBySavedAt,
+  createSubmittedDocItem,
+  normalizeSubmittedDocItem,
+  collectVisibleSubmittedDocs,
+  buildSubmittedDocProgressContent,
 } from './law-journal-logic.js';
 
 test('carryForwardTomorrowTasks moves unchecked tomorrow tasks into today tasks', () => {
@@ -32,6 +36,57 @@ test('carryForwardTomorrowTasks moves unchecked tomorrow tasks into today tasks'
 
   assert.deepEqual(merged.map((item) => item.text), ['기존 오늘 할 일', '준비서면 검토']);
   assert.equal(merged[1].sourceDate, '2026-04-14');
+});
+
+test('submitted docs stay visible only on submitted date and the next day', () => {
+  const submitted = createSubmittedDocItem(
+    { id: 'p1', text: '2026가단1234 준비서면 제출', dueDate: '2026-04-15', sourceDate: '2026-04-14' },
+    '2026-04-15',
+    '2026-04-15T10:00:00.000Z'
+  );
+  const entries = {
+    '2026-04-15': {
+      submittedDocItems: JSON.stringify([submitted]),
+    },
+    '2026-04-16': {
+      submittedDocItems: JSON.stringify([]),
+    },
+    '2026-04-17': {
+      submittedDocItems: JSON.stringify([]),
+    },
+  };
+
+  assert.deepEqual(collectVisibleSubmittedDocs(entries, '2026-04-15').map((item) => item.text), ['2026가단1234 준비서면 제출']);
+  assert.deepEqual(collectVisibleSubmittedDocs(entries, '2026-04-16').map((item) => item.text), ['2026가단1234 준비서면 제출']);
+  assert.deepEqual(collectVisibleSubmittedDocs(entries, '2026-04-17').map((item) => item.text), []);
+  assert.equal(submitted.submittedDate, '2026-04-15');
+  assert.equal(submitted.sourceDate, '2026-04-14');
+});
+
+test('submitted docs keep a stable id when normalized repeatedly', () => {
+  const submitted = createSubmittedDocItem(
+    { id: 'pending_123', text: '2026가단1234 준비서면 제출', dueDate: '2026-04-15', sourceDate: '2026-04-14' },
+    '2026-04-15',
+    '2026-04-15T10:00:00.000Z'
+  );
+
+  const normalizedOnce = normalizeSubmittedDocItem(submitted, '2026-04-15', '2026-04-15');
+  const normalizedTwice = normalizeSubmittedDocItem(normalizedOnce, '2026-04-15', '2026-04-15');
+
+  assert.equal(normalizedOnce.id, submitted.id);
+  assert.equal(normalizedTwice.id, submitted.id);
+  assert.equal(normalizedTwice.pendingId, submitted.pendingId);
+});
+
+test('buildSubmittedDocProgressContent formats case-manager progress text', () => {
+  assert.equal(
+    buildSubmittedDocProgressContent('2026-04-15', '홍길동 손해배상 사건', '2026가단1234 준비서면 제출'),
+    '4월 15일 홍길동 손해배상 사건 준비서면 제출'
+  );
+  assert.equal(
+    buildSubmittedDocProgressContent('2026-04-15', '보험설계사 환수금', '항소이유서'),
+    '4월 15일 보험설계사 환수금 항소이유서 제출'
+  );
 });
 
 test('carryForwardPendingDocs moves unchecked pending docs into next day pending docs', () => {

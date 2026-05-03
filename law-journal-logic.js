@@ -168,6 +168,134 @@ export function createPendingDocCompletion(item, completedAt = new Date().toISOS
   return { ...normalized, completedAt };
 }
 
+function shiftDateKey(dateKey, days = 0) {
+  const timestamp = Date.parse(`${dateKey}T00:00:00+09:00`);
+  if (!Number.isFinite(timestamp)) return '';
+  return new Date(timestamp + days * 24 * 60 * 60 * 1000 + 9 * 60 * 60 * 1000).toISOString().slice(0, 10);
+}
+
+function makeSubmittedDocId(item, submittedDate) {
+  if (item.submittedDocId) return item.submittedDocId;
+  if (item.id && String(item.id).startsWith('submitted_')) return item.id;
+  if (item.id) return `submitted_${item.id}_${submittedDate || 'date'}`;
+  return makeId('submitted-doc');
+}
+
+export function normalizeSubmittedDocItem(item, fallbackSubmittedDate = '', fallbackSourceDate = '') {
+  if (!item || !item.text || !item.text.trim()) return null;
+  const submittedDate = item.submittedDate || fallbackSubmittedDate || '';
+  const sourceDate = item.sourceDate || fallbackSourceDate || submittedDate;
+  return {
+    id: makeSubmittedDocId(item, submittedDate),
+    pendingId: item.pendingId || (String(item.id || '').startsWith('submitted_') ? '' : item.id || ''),
+    text: item.text.trim(),
+    dueDate: item.dueDate || '',
+    sourceDate,
+    submittedDate,
+    completedAt: item.completedAt || '',
+    cmCaseId: item.cmCaseId || '',
+    cmSyncedAt: item.cmSyncedAt || '',
+    cmProgressContent: item.cmProgressContent || '',
+  };
+}
+
+export function createSubmittedDocItem(item, submittedDate, completedAt = new Date().toISOString(), fallbackSourceDate = '') {
+  const normalized = normalizeSubmittedDocItem({
+    ...item,
+    pendingId: item?.pendingId || item?.id || '',
+    submittedDate,
+    completedAt,
+  }, submittedDate, fallbackSourceDate || item?.sourceDate || submittedDate);
+  return normalized;
+}
+
+function submittedDocIdentityKeys(item) {
+  if (!item || !item.text) return [];
+  const submittedDate = item.submittedDate || '';
+  const sourceDate = item.sourceDate || '';
+  const textKey = `text:${item.text.trim()}|due:${item.dueDate || ''}|submitted:${submittedDate}|source:${sourceDate}`;
+  const keys = [textKey];
+  if (item.id) keys.push(`id:${item.id}`);
+  if (item.pendingId) keys.push(`pending:${item.pendingId}|submitted:${submittedDate}`);
+  return keys;
+}
+
+export function collectVisibleSubmittedDocs(entries = {}, targetDate, visibleThroughDays = 1) {
+  if (!targetDate) return [];
+  const visible = [];
+  const seen = new Set();
+
+  Object.entries(entries || {}).forEach(([dateKey, entry]) => {
+    parseJsonArray(entry?.submittedDocItems)
+      .map((item) => normalizeSubmittedDocItem(item, dateKey, dateKey))
+      .filter(Boolean)
+      .forEach((item) => {
+        if (!item.submittedDate) return;
+        const visibleUntil = shiftDateKey(item.submittedDate, visibleThroughDays);
+        if (targetDate < item.submittedDate || (visibleUntil && targetDate > visibleUntil)) return;
+        const keys = submittedDocIdentityKeys(item);
+        if (keys.some((key) => seen.has(key))) return;
+        keys.forEach((key) => seen.add(key));
+        visible.push(item);
+      });
+  });
+
+  return visible.sort((a, b) => {
+    if (a.submittedDate !== b.submittedDate) return b.submittedDate.localeCompare(a.submittedDate);
+    return a.text.localeCompare(b.text, 'ko');
+  });
+}
+
+export function formatKoreanMonthDay(dateKey = '') {
+  const match = String(dateKey).match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (!match) return String(dateKey || '').trim();
+  return `${Number(match[2])}월 ${Number(match[3])}일`;
+}
+
+const DOCUMENT_TYPE_PATTERNS = [
+  '청구취지 및 청구원인 변경신청서',
+  '청구취지변경신청서',
+  '청구원인변경신청서',
+  '문서송부촉탁신청서',
+  '사실조회신청서',
+  '항소이유서',
+  '상고이유서',
+  '준비서면',
+  '답변서',
+  '의견서',
+  '참고서면',
+  '보정서',
+  '증거신청서',
+  '증거설명서',
+  '서증',
+  '소장',
+  '고소장',
+  '고발장',
+  '신청서',
+  '진술서',
+];
+
+export function extractDocumentType(text = '') {
+  const clean = String(text || '').replace(/\s+/g, ' ').trim();
+  if (!clean) return '';
+  const found = DOCUMENT_TYPE_PATTERNS.find((pattern) => clean.includes(pattern));
+  if (found) return found;
+  return clean
+    .replace(/\d{4}[가-힣]{1,4}\d+/g, '')
+    .replace(/제출\s*$/g, '')
+    .replace(/[\[\]{}()]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+export function buildSubmittedDocProgressContent(dateKey, caseTitle = '관련 사건', docText = '서면') {
+  const dateLabel = formatKoreanMonthDay(dateKey);
+  const title = String(caseTitle || '관련 사건').trim();
+  const docType = extractDocumentType(docText) || '서면';
+  const docLabel = docType.endsWith('제출') ? docType.replace(/제출\s*$/g, '').trim() : docType;
+  return `${dateLabel} ${title} ${docLabel} 제출`.replace(/\s+/g, ' ').trim();
+}
+
 export function carryForwardPendingDocs(entries = {}, targetDate) {
   const completedKeys = collectPendingDocCompletionKeys(entries, targetDate);
   const current = parseJsonArray(entries[targetDate]?.pendingDocItems)
@@ -329,6 +457,12 @@ if (typeof window !== 'undefined') {
     sortChecklistByDueDate,
     carryForwardTomorrowTasks,
     createPendingDocCompletion,
+    normalizeSubmittedDocItem,
+    createSubmittedDocItem,
+    collectVisibleSubmittedDocs,
+    formatKoreanMonthDay,
+    extractDocumentType,
+    buildSubmittedDocProgressContent,
     carryForwardPendingDocs,
     sortDelegatedTasks,
     getLearnedItemsFromEntry,
