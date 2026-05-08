@@ -1,0 +1,678 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Hearts For My Sweet Baboo — 스누피 영어 학습지</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link
+  href="https://fonts.googleapis.com/css2?family=Gaegu:wght@400;700&family=Noto+Sans+KR:wght@400;500;700&display=swap"
+  rel="stylesheet"
+/>
+<style>
+  :root {
+    --pink-50: #fff1f5;
+    --pink-100: #ffe4ec;
+    --pink-300: #ff9eb8;
+    --pink-500: #ff5c85;
+    --pink-700: #c4365c;
+    --cream: #fff8e7;
+    --ink: #2b1d24;
+    --ink-soft: #5a4651;
+    --line: #f3c4d1;
+    --gold: #d99a4a;
+    --green: #6a8f4d;
+    --shadow: 0 6px 24px rgba(196, 54, 92, 0.12);
+  }
+
+  * { box-sizing: border-box; }
+  html, body, #root { height: 100%; }
+
+  body {
+    margin: 0;
+    font-family: 'Noto Sans KR', system-ui, -apple-system, BlinkMacSystemFont,
+      'Segoe UI', Roboto, sans-serif;
+    color: var(--ink);
+    background:
+      radial-gradient(circle at 10% 0%, #ffd5e2 0%, transparent 40%),
+      radial-gradient(circle at 90% 10%, #ffe9d6 0%, transparent 35%),
+      var(--pink-50);
+    background-attachment: fixed;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  button { font-family: inherit; cursor: pointer; }
+  input { font-family: inherit; }
+
+  .app { max-width: 1080px; margin: 0 auto; padding: 32px 24px 80px; }
+
+  /* Header */
+  .app-header { text-align: center; padding: 16px 0 24px; }
+  .brand {
+    display: inline-block;
+    font-size: 12px;
+    letter-spacing: 0.32em;
+    color: var(--pink-700);
+    background: white;
+    padding: 6px 14px;
+    border-radius: 999px;
+    border: 1px solid var(--line);
+    margin-bottom: 14px;
+  }
+  .app-header h1 {
+    font-family: 'Gaegu', 'Noto Sans KR', sans-serif;
+    font-size: clamp(32px, 4.6vw, 48px);
+    margin: 0;
+    letter-spacing: -0.01em;
+  }
+  .heart {
+    color: var(--pink-500);
+    display: inline-block;
+    transform: translateY(-2px);
+    animation: heart 1.4s ease-in-out infinite;
+  }
+  @keyframes heart {
+    0%, 100% { transform: translateY(-2px) scale(1); }
+    50%     { transform: translateY(-2px) scale(1.18); }
+  }
+  .subtitle { margin-top: 8px; color: var(--ink-soft); }
+
+  /* Tabs */
+  .scene-tabs {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 10px;
+    margin: 20px 0 22px;
+  }
+  .tab {
+    background: white;
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 12px 14px;
+    text-align: left;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    transition: all 0.15s ease;
+    color: inherit;
+  }
+  .tab:hover { transform: translateY(-1px); box-shadow: var(--shadow); }
+  .tab.active {
+    background: linear-gradient(135deg, var(--pink-500), var(--pink-700));
+    color: white;
+    border-color: transparent;
+    box-shadow: var(--shadow);
+  }
+  .tab-num {
+    font-size: 11px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    opacity: 0.85;
+  }
+  .tab-label { font-size: 14px; font-weight: 600; }
+
+  /* Main grid */
+  .main {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 280px;
+    gap: 20px;
+    align-items: start;
+  }
+  @media (max-width: 860px) {
+    .main { grid-template-columns: 1fr; }
+    .scene-tabs { grid-template-columns: repeat(2, 1fr); }
+  }
+
+  /* Scene card */
+  .scene {
+    background: white;
+    border-radius: 18px;
+    padding: 24px;
+    box-shadow: var(--shadow);
+    border: 1px solid var(--line);
+  }
+  .scene-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 16px;
+    border-bottom: 1px dashed var(--line);
+    padding-bottom: 16px;
+    margin-bottom: 16px;
+  }
+  .scene-header h2 {
+    font-family: 'Gaegu', sans-serif;
+    font-size: 22px;
+    margin: 0;
+    color: var(--pink-700);
+  }
+  .scene-title-ko { margin: 4px 0 0; color: var(--ink-soft); font-size: 14px; }
+  .badge {
+    background: var(--pink-100);
+    color: var(--pink-700);
+    border-radius: 999px;
+    padding: 6px 12px;
+    font-size: 12px;
+    font-weight: 700;
+    white-space: nowrap;
+  }
+
+  /* Word box */
+  .word-box {
+    background: linear-gradient(180deg, var(--cream), #fff);
+    border: 1.5px dashed var(--gold);
+    border-radius: 14px;
+    padding: 14px 16px;
+    margin-bottom: 18px;
+  }
+  .word-box-label {
+    font-size: 11px;
+    letter-spacing: 0.24em;
+    color: var(--gold);
+    font-weight: 700;
+    margin-bottom: 8px;
+  }
+  .word-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+  .chip {
+    background: white;
+    border: 1px solid var(--line);
+    color: var(--ink);
+    padding: 5px 12px;
+    font-size: 14px;
+    border-radius: 999px;
+    font-weight: 500;
+  }
+
+  /* Lines */
+  .lines { display: flex; flex-direction: column; gap: 14px; }
+  .line {
+    padding: 14px 16px;
+    border-radius: 12px;
+    background: var(--pink-50);
+    border: 1px solid transparent;
+  }
+  .line:hover { border-color: var(--line); }
+  .who {
+    font-size: 11px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--pink-700);
+    font-weight: 700;
+    margin-bottom: 6px;
+  }
+  .en { font-size: 17px; line-height: 1.8; color: var(--ink); }
+  .ko { margin-top: 6px; font-size: 13px; color: var(--ink-soft); }
+
+  /* Blank inputs */
+  .blank-wrap { display: inline-flex; align-items: center; gap: 4px; }
+  .blank {
+    border: none;
+    border-bottom: 2px solid var(--pink-300);
+    background: rgba(255, 255, 255, 0.7);
+    padding: 2px 6px;
+    font-size: 17px;
+    color: var(--ink);
+    outline: none;
+    border-radius: 4px 4px 0 0;
+    transition: all 0.12s ease;
+    text-align: center;
+  }
+  .blank:focus {
+    border-bottom-color: var(--pink-500);
+    background: white;
+    box-shadow: 0 4px 0 -2px var(--pink-100);
+  }
+  .blank.correct {
+    border-bottom-color: var(--green);
+    color: var(--green);
+    background: #effbe7;
+    font-weight: 700;
+  }
+  .blank.wrong { border-bottom-color: #d04848; background: #ffeded; }
+  .blank.reveal {
+    background: var(--cream);
+    border-bottom-color: var(--gold);
+    color: var(--pink-700);
+    font-weight: 700;
+  }
+  .answer-tag {
+    font-size: 9px;
+    letter-spacing: 0.16em;
+    color: var(--gold);
+    background: white;
+    border: 1px solid var(--gold);
+    border-radius: 4px;
+    padding: 1px 4px;
+    vertical-align: super;
+  }
+
+  /* Actions */
+  .scene-actions {
+    display: flex;
+    gap: 10px;
+    margin-top: 22px;
+    padding-top: 18px;
+    border-top: 1px dashed var(--line);
+    flex-wrap: wrap;
+  }
+  .btn {
+    border: none;
+    padding: 10px 18px;
+    font-size: 14px;
+    font-weight: 700;
+    border-radius: 10px;
+    transition: all 0.15s ease;
+  }
+  .btn.primary {
+    background: linear-gradient(135deg, var(--pink-500), var(--pink-700));
+    color: white;
+    box-shadow: 0 4px 0 rgba(196, 54, 92, 0.25);
+  }
+  .btn.primary:hover { transform: translateY(-1px); }
+  .btn.primary.active {
+    background: linear-gradient(135deg, var(--gold), #b27d2f);
+    box-shadow: 0 4px 0 rgba(178, 125, 47, 0.3);
+  }
+  .btn.ghost {
+    background: white;
+    color: var(--ink-soft);
+    border: 1px solid var(--line);
+  }
+  .btn.ghost:hover { background: var(--pink-50); color: var(--pink-700); }
+
+  /* Tips */
+  .tips {
+    background: white;
+    border-radius: 18px;
+    padding: 20px;
+    border: 1px solid var(--line);
+    box-shadow: var(--shadow);
+    position: sticky;
+    top: 16px;
+  }
+  .tips h3 {
+    margin: 0 0 12px;
+    color: var(--pink-700);
+    font-size: 15px;
+    letter-spacing: 0.04em;
+    font-family: 'Gaegu', sans-serif;
+    font-size: 20px;
+  }
+  .tips ul {
+    list-style: none;
+    padding: 0;
+    margin: 0 0 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .tips li { font-size: 13px; color: var(--ink-soft); line-height: 1.55; }
+  .tips strong { color: var(--ink); }
+  .yt-link {
+    display: inline-block;
+    margin-top: 4px;
+    color: var(--pink-700);
+    text-decoration: none;
+    font-size: 13px;
+    font-weight: 600;
+    border-bottom: 1px solid currentColor;
+  }
+  .yt-link:hover { color: var(--pink-500); }
+
+  .app-footer {
+    text-align: center;
+    margin-top: 32px;
+    font-size: 12px;
+    color: var(--ink-soft);
+  }
+
+  .loader {
+    text-align: center;
+    padding: 60px 20px;
+    color: var(--ink-soft);
+  }
+</style>
+</head>
+<body>
+<div id="root">
+  <div class="loader">로딩 중… ♥</div>
+</div>
+
+<script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+<script type="text/babel" data-presets="react">
+const { useMemo, useState } = React;
+
+// ── 데이터 ───────────────────────────────────────────────
+const scenes = [
+  {
+    id: 1,
+    title: 'Scene 1 — Charlie Brown and Snoopy with Valentines',
+    titleKo: '장면 1 — 찰리 브라운과 스누피, 그리고 발렌타인 카드',
+    speakers: [
+      { who: 'Charlie Brown',
+        en: { text: "Snoopy, look at all these {}! There's even one for you. How about that?", blanks: ['Valentines'] },
+        ko: '스누피, 이 발렌타인 카드들 좀 봐! 네 것도 있어. 어때?' },
+      { who: 'Charlie Brown',
+        en: { text: "Oh, here's another one for you. And another! Must be your {} day.", blanks: ['lucky'] },
+        ko: '오, 여기 또 하나 더 있네. 또 있어! 오늘은 운수 좋은 날인가 본데.' },
+      { who: 'Charlie Brown',
+        en: { text: "Wait, here's one with my {} on it.", blanks: ['name'] },
+        ko: '잠깐, 여기 내 이름이 적힌 게 하나 있네.' },
+      { who: 'Charlie Brown (reading)',
+        en: { text: '"Charlie Brown, please {} this to Snoopy." I didn\'t even {} one.', blanks: ['give', 'get'] },
+        ko: '"찰리 브라운, 이것 좀 스누피에게 전해줘." 난 한 장도 못 받았는데.' },
+      { who: 'Charlie Brown (reading)',
+        en: { text: '"To the round-headed {} who brings me {}. Happy Valentine\'s Day."', blanks: ['kid', 'supper'] },
+        ko: '"나에게 저녁을 가져다주는 머리가 둥근 꼬마에게. 행복한 발렌타인 데이 보내."' },
+      { who: 'Charlie Brown',
+        en: { text: "I know I should be {}, but I'll take it. Thanks, old pal.", blanks: ['embarrassed'] },
+        ko: '창피해야 한다는 건 알지만, 그래도 받을게. 고맙다 친구야.' },
+      { who: 'Narrator',
+        en: { text: 'Charlie Brown sure is {} about getting mail.', blanks: ['excited'] },
+        ko: '찰리 브라운은 우편물 받는 걸 정말 좋아하는구나.' },
+    ],
+  },
+  {
+    id: 2,
+    title: 'Scene 2 — Sally making a card',
+    titleKo: '장면 2 — 샐리의 카드 만들기',
+    speakers: [
+      { who: 'Sally',
+        en: { text: 'Hello, my sweet {}!', blanks: ['baboo'] },
+        ko: '안녕, 나의 귀염둥이!' },
+      { who: 'Sally',
+        en: { text: "Nothing says Valentine's Day like a {} card.", blanks: ['homemade'] },
+        ko: '직접 만든 카드만큼 발렌타인 데이에 어울리는 건 없지.' },
+      { who: 'Sally',
+        en: { text: "Let's see... I need to add some {}, sparkles, and the ultimate {} touch: a macaroni {}. Perfection!", blanks: ['glue', 'finishing', 'self-portrait'] },
+        ko: '보자... 풀이랑 반짝이도 좀 넣고, 마지막 결정적인 한 방으로 마카로니 자화상을 붙여야지. 완벽해!' },
+      { who: 'Sally',
+        en: { text: "Snoopy, I need you to take this. It's not for you. I need you to {} it.", blanks: ['deliver'] },
+        ko: '스누피, 이것 좀 가져가 줘. 네 거 아니야. 배달해 줘야 해.' },
+      { who: 'Sally',
+        en: { text: "After all, there's nothing classier than a personal {}.", blanks: ['courier'] },
+        ko: '결국 개인 심부름꾼만큼 품격 있는 건 없으니까.' },
+      { who: 'Sally',
+        en: { text: "Take it to my sweet baboo. He's the one who puts a {} in my heart. Got it?", blanks: ['song'] },
+        ko: '내 귀염둥이에게 가져다줘. 그는 내 마음에 노래를 불러주는 사람이야. 알겠지?' },
+    ],
+  },
+  {
+    id: 3,
+    title: 'Scene 3 — Delivery mistakes',
+    titleKo: '장면 3 — 계속되는 배달 실수',
+    speakers: [
+      { who: 'Schroeder',
+        en: { text: 'Can I help you? This is for {}?', blanks: ['me'] },
+        ko: '도와줄까? 이게 내 거라고?' },
+      { who: 'Sally',
+        en: { text: "That must be my sweet baboo! I'll {} he really liked my macaroni portrait.", blanks: ['bet'] },
+        ko: '내 귀염둥이임에 틀림없어! 내 마카로니 초상화를 정말 좋아했을 거야.' },
+      { who: 'Sally',
+        en: { text: 'Hello? He did what? This is {}!', blanks: ['outrageous'] },
+        ko: '여보세요? 그가 뭘 했다고? 이건 말도 안 돼!' },
+      { who: 'Sally',
+        en: { text: "I mean, I'm glad you {} it, Schroeder.", blanks: ['liked'] },
+        ko: '내 말은, 네가 좋아했다니 다행이네, 슈로더.' },
+      { who: 'Sally',
+        en: { text: 'Snoopy, you gave my Valentine to the {} person!', blanks: ['wrong'] },
+        ko: '스누피, 내 발렌타인 카드를 엉뚱한 사람한테 줬잖아!' },
+      { who: 'Sally',
+        en: { text: 'Now I have to make another {} that captures the true {} of my love.', blanks: ['masterpiece', 'depth'] },
+        ko: '이제 내 사랑의 깊이를 담은 또 다른 걸작을 만들어야 하잖아.' },
+      { who: 'Sally',
+        en: { text: "You think that's {}? It's not. Construction paper, glue, {}, extra {}... Perfect!", blanks: ['easy', 'macaroni', 'sparkles'] },
+        ko: '이게 쉬운 줄 아니? 아니라고. 도화지, 풀, 마카로니, 반짝이 추가... 완벽해!' },
+    ],
+  },
+  {
+    id: 4,
+    title: 'Scene 4 — Final resolution',
+    titleKo: '장면 4 — 마지막 결말',
+    speakers: [
+      { who: 'Charlie Brown',
+        en: { text: "Sally, I'm the last person to give {} on Valentine's Day, but have you considered that it might not be Snoopy's {}?", blanks: ['advice', 'fault'] },
+        ko: '샐리, 내가 발렌타인 데이에 대해 조언할 처지는 아니지만, 이게 스누피 잘못이 아닐 수도 있다는 생각은 안 해봤니?' },
+      { who: 'Charlie Brown',
+        en: { text: "Maybe he wasn't {} who your sweet baboo is.", blanks: ['sure'] },
+        ko: '아마 네 귀염둥이가 누구인지 잘 몰랐을 수도 있잖아.' },
+      { who: 'Sally',
+        en: { text: "Well, he could have just {} me! It doesn't matter now. Valentine's Day is {}.", blanks: ['asked', 'ruined'] },
+        ko: '그럼 그냥 나한테 물어봤으면 됐잖아! 이제 상관없어. 발렌타인 데이는 완전히 망쳤어.' },
+      { who: 'Charlie Brown',
+        en: { text: "It's not your fault, Snoopy. It's just Valentine's Day {} a lot to Sally.", blanks: ['means'] },
+        ko: '네 잘못이 아니야 스누피. 그냥 샐리한테 발렌타인 데이가 의미가 커서 그래.' },
+      { who: 'Friends',
+        en: { text: "Because you made so many nice Valentine's Day cards for everyone, we wanted to do something {} for you. Happy Valentine's Day!", blanks: ['special'] },
+        ko: '네가 모두를 위해 예쁜 발렌타인 카드를 많이 만들어줘서, 우리도 널 위해 특별한 걸 준비하고 싶었어. 해피 발렌타인 데이!' },
+      { who: 'Sally',
+        en: { text: 'For me? Oh, thank you! You even got the macaroni-to-sparkle {} just right.', blanks: ['ratio'] },
+        ko: '내 거니? 오, 고마워! 마카로니와 반짝이 비율을 아주 딱 맞게 맞췄구나.' },
+      { who: 'Charlie Brown',
+        en: { text: 'Huh, who knew a day in the middle of February could bring so many people {}?', blanks: ['together'] },
+        ko: '허, 2월 한복판의 어느 하루가 이렇게 많은 사람을 하나로 모을 줄 누가 알았겠어?' },
+    ],
+  },
+];
+
+const learningTips = [
+  { term: 'Sweet Baboo', tip: '샐리가 라이너스를 부르는 애칭. "귀염둥이" 정도로 해석돼요.' },
+  { term: 'Shadowing',  tip: '영상에서 같은 문장이 세 번씩 반복돼요. 따라 말하기로 발음·억양을 연습해 봐요.' },
+  { term: 'Macaroni self-portrait', tip: '마카로니로 만든 자화상. 미국 어린이 미술 활동의 단골 재료예요.' },
+];
+
+// ── 유틸 ─────────────────────────────────────────────────
+function shuffle(arr) {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+function normalize(s) {
+  return (s || '').toLowerCase().trim().replace(/[.,!?;:'"]/g, '');
+}
+
+// ── Components ───────────────────────────────────────────
+function FillBlankLine({ line, lineIdx, sceneIdx, answers, setAnswers, showAnswers }) {
+  const parts = line.en.text.split('{}');
+  const blanks = line.en.blanks;
+
+  return (
+    <div className="line">
+      <div className="who">{line.who}</div>
+      <div className="en">
+        {parts.map((part, i) => {
+          if (i >= blanks.length) return <span key={i}>{part}</span>;
+          const key = `${sceneIdx}-${lineIdx}-${i}`;
+          const userValue = answers[key] ?? '';
+          const correct = blanks[i];
+          const isCorrect = userValue.length > 0 && normalize(userValue) === normalize(correct);
+          const isWrong = userValue.length > 0 && !isCorrect;
+          return (
+            <span key={i}>
+              <span>{part}</span>
+              <span className="blank-wrap">
+                <input
+                  className={
+                    'blank' +
+                    (showAnswers ? ' reveal' : '') +
+                    (isCorrect ? ' correct' : '') +
+                    (isWrong && !showAnswers ? ' wrong' : '')
+                  }
+                  type="text"
+                  value={showAnswers ? correct : userValue}
+                  onChange={(e) => setAnswers((p) => ({ ...p, [key]: e.target.value }))}
+                  readOnly={showAnswers}
+                  placeholder="____"
+                  style={{ width: `${Math.max(correct.length + 2, 6)}ch` }}
+                />
+                {showAnswers && <span className="answer-tag">정답</span>}
+              </span>
+            </span>
+          );
+        })}
+      </div>
+      <div className="ko">{line.ko}</div>
+    </div>
+  );
+}
+
+function Scene({ scene, sceneIdx, answers, setAnswers }) {
+  const [showAnswers, setShowAnswers] = useState(false);
+
+  const allBlanks = useMemo(
+    () => scene.speakers.flatMap((s) => s.en.blanks),
+    [scene]
+  );
+  const wordBox = useMemo(() => shuffle(allBlanks), [allBlanks]);
+
+  const filledCount = scene.speakers.reduce((acc, line, lineIdx) => {
+    return (
+      acc +
+      line.en.blanks.filter((correct, i) => {
+        const key = `${sceneIdx}-${lineIdx}-${i}`;
+        return normalize(answers[key] ?? '') === normalize(correct);
+      }).length
+    );
+  }, 0);
+
+  const clearScene = () => {
+    setAnswers((prev) => {
+      const next = { ...prev };
+      Object.keys(next).forEach((k) => {
+        if (k.startsWith(`${sceneIdx}-`)) delete next[k];
+      });
+      return next;
+    });
+    setShowAnswers(false);
+  };
+
+  return (
+    <section className="scene">
+      <header className="scene-header">
+        <div>
+          <h2>{scene.title}</h2>
+          <p className="scene-title-ko">{scene.titleKo}</p>
+        </div>
+        <div className="scene-stats">
+          <span className="badge">
+            {filledCount} / {allBlanks.length} 정답
+          </span>
+        </div>
+      </header>
+
+      <div className="word-box">
+        <div className="word-box-label">단어 상자 · Word Box</div>
+        <div className="word-chips">
+          {wordBox.map((w, i) => (
+            <span className="chip" key={`${w}-${i}`}>{w}</span>
+          ))}
+        </div>
+      </div>
+
+      <div className="lines">
+        {scene.speakers.map((line, idx) => (
+          <FillBlankLine
+            key={idx}
+            line={line}
+            lineIdx={idx}
+            sceneIdx={sceneIdx}
+            answers={answers}
+            setAnswers={setAnswers}
+            showAnswers={showAnswers}
+          />
+        ))}
+      </div>
+
+      <div className="scene-actions">
+        <button
+          className={'btn primary' + (showAnswers ? ' active' : '')}
+          onClick={() => setShowAnswers((v) => !v)}
+        >
+          {showAnswers ? '정답 숨기기' : '정답 보기'}
+        </button>
+        <button className="btn ghost" onClick={clearScene}>
+          다시 풀기
+        </button>
+      </div>
+    </section>
+  );
+}
+
+function App() {
+  const [activeScene, setActiveScene] = useState(0);
+  const [answers, setAnswers] = useState({});
+
+  return (
+    <div className="app">
+      <header className="app-header">
+        <span className="brand">PEANUTS · 스누피와 함께하는 영어</span>
+        <h1>
+          Hearts For My Sweet Baboo <span className="heart">♥</span>
+        </h1>
+        <p className="subtitle">발렌타인 데이 에피소드로 배우는 영어 빈칸 채우기</p>
+      </header>
+
+      <nav className="scene-tabs">
+        {scenes.map((s, i) => (
+          <button
+            key={s.id}
+            className={'tab' + (activeScene === i ? ' active' : '')}
+            onClick={() => setActiveScene(i)}
+          >
+            <span className="tab-num">Scene {s.id}</span>
+            <span className="tab-label">
+              {s.titleKo.replace(/^장면 \d+ — /, '')}
+            </span>
+          </button>
+        ))}
+      </nav>
+
+      <main className="main">
+        <Scene
+          scene={scenes[activeScene]}
+          sceneIdx={activeScene}
+          answers={answers}
+          setAnswers={setAnswers}
+        />
+
+        <aside className="tips">
+          <h3>학습 팁</h3>
+          <ul>
+            {learningTips.map((t) => (
+              <li key={t.term}>
+                <strong>{t.term}</strong> — {t.tip}
+              </li>
+            ))}
+          </ul>
+          <a
+            className="yt-link"
+            href="https://www.youtube.com/watch?v=7EY0gxSAnq8"
+            target="_blank"
+            rel="noreferrer noopener"
+          >
+            ▶ 원본 영상 보기 (YouTube)
+          </a>
+        </aside>
+      </main>
+
+      <footer className="app-footer">
+        단어 상자에서 정답 단어를 찾아 빈칸에 입력해 보세요.
+        막히면 <em>정답 보기</em> 버튼을 눌러 확인할 수 있어요.
+      </footer>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>
