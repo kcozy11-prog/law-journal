@@ -1,0 +1,47 @@
+:root {
+  --pink-50: #fff1f5;
+  --pink-100: #ffe4ec;
+  --pink-300: #ff9eb8;
+  --pink-500: #ff5c85;
+  --pink-700: #c4365c;
+  --cream: #fff8e7;
+  --ink: #2b1d24;
+  --ink-soft: #5a4651;
+  --line: #f3c4d1;
+  --gold: #d99a4a;
+  --green: #6a8f4d;
+  --shadow: 0 6px 24px rgba(196, 54, 92, 0.12);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: 'Pretendard', 'Apple SD Gothic Neo', 'Noto Sans KR',
+    system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  color: var(--ink);
+  background:
+    radial-gradient(circle at 10% 0%, #ffd5e2 0%, transparent 40%),
+    radial-gradient(circle at 90% 10%, #ffe9d6 0%, transparent 35%),
+    var(--pink-50);
+  background-attachment: fixed;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+}
+
+button {
+  font-family: inherit;
+  cursor: pointer;
+}
+
+input {
+  font-family: inherit;
+}
