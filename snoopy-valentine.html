@@ -82,7 +82,7 @@
   /* Tabs */
   .scene-tabs {
     display: grid;
-    grid-template-columns: repeat(4, 1fr);
+    grid-template-columns: repeat(5, 1fr);
     gap: 10px;
     margin: 20px 0 22px;
   }
@@ -333,6 +333,117 @@
     padding: 60px 20px;
     color: var(--ink-soft);
   }
+
+  /* ── Grammar badge ── */
+  .grammar-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background: #ecf6ff;
+    border: 1px solid #b3d6f5;
+    color: #1a5b94;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    padding: 2px 8px;
+    border-radius: 999px;
+    margin-left: 6px;
+    cursor: help;
+    vertical-align: 1px;
+  }
+  .grammar-tag::before { content: '⚙'; font-size: 10px; }
+
+  /* ── Pattern practice tab ── */
+  .pattern-intro {
+    background: white;
+    border-radius: 18px;
+    padding: 22px 24px;
+    box-shadow: var(--shadow);
+    border: 1px solid var(--line);
+    margin-bottom: 18px;
+  }
+  .pattern-intro h2 {
+    margin: 0 0 6px;
+    font-family: 'Gaegu', sans-serif;
+    font-size: 24px;
+    color: var(--pink-700);
+  }
+  .pattern-intro p {
+    margin: 0;
+    color: var(--ink-soft);
+    font-size: 14px;
+  }
+
+  .pattern-card {
+    background: white;
+    border-radius: 18px;
+    padding: 22px 24px;
+    box-shadow: var(--shadow);
+    border: 1px solid var(--line);
+    margin-bottom: 16px;
+  }
+  .pattern-card-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 10px;
+    border-bottom: 1px dashed var(--line);
+    padding-bottom: 12px;
+    margin-bottom: 14px;
+  }
+  .pattern-label {
+    font-family: 'Gaegu', sans-serif;
+    font-size: 22px;
+    color: #1a5b94;
+    font-weight: 700;
+  }
+  .pattern-formula {
+    font-family: 'Courier New', Courier, monospace;
+    background: #f5f9ff;
+    color: #1a5b94;
+    border: 1px solid #cfe2f6;
+    border-radius: 6px;
+    padding: 3px 10px;
+    font-size: 13px;
+    font-weight: 700;
+  }
+  .pattern-note {
+    flex-basis: 100%;
+    color: var(--ink-soft);
+    font-size: 13px;
+    margin-top: 2px;
+  }
+  .pattern-examples {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .pattern-example {
+    background: var(--pink-50);
+    border-left: 3px solid var(--pink-300);
+    padding: 10px 14px;
+    border-radius: 8px;
+  }
+  .pattern-example .ex-en { font-size: 15px; color: var(--ink); }
+  .pattern-example .ex-ko {
+    margin-top: 4px;
+    font-size: 12px;
+    color: var(--ink-soft);
+  }
+  .pattern-example .ex-loc {
+    font-size: 10px;
+    letter-spacing: 0.16em;
+    color: var(--pink-700);
+    text-transform: uppercase;
+    font-weight: 700;
+    margin-bottom: 4px;
+  }
+  .pattern-example .chunk {
+    background: #fff5cc;
+    border-bottom: 2px solid var(--gold);
+    padding: 0 3px;
+    font-weight: 700;
+  }
 </style>
 </head>
 <body>
@@ -370,8 +481,9 @@ const scenes = [
         en: { text: 'And another!', blanks: [] },
         ko: '또 있어!' },
       { who: 'Charlie Brown',
-        en: { text: 'Must be your {} day.', blanks: ['lucky'] },
-        ko: '오늘은 운수 좋은 날인가 본데.' },
+        en: { text: '{} your lucky day.', blanks: ['Must be'] },
+        ko: '오늘은 운수 좋은 날인가 본데.',
+        grammar: 'MODAL_GUESS' },
       { who: 'Charlie Brown',
         en: { text: 'One {} for you.', blanks: ['more'] },
         ko: '여기 하나 더.' },
@@ -382,26 +494,30 @@ const scenes = [
         en: { text: "Wait, here's one with my {} on it.", blanks: ['name'] },
         ko: '잠깐, 여기 내 이름이 적힌 게 하나 있네.' },
       { who: 'Charlie Brown (reading)',
-        en: { text: '"Charlie Brown, please {} this to Snoopy."', blanks: ['give'] },
-        ko: '"찰리 브라운, 이것 좀 스누피에게 전해줘."' },
+        en: { text: '"Charlie Brown, please {} Snoopy."', blanks: ['give this to'] },
+        ko: '"찰리 브라운, 이것 좀 스누피에게 전해줘."',
+        grammar: 'GIVE_OBJ_TO' },
       { who: 'Charlie Brown',
         en: { text: "I didn't even {} one.", blanks: ['get'] },
         ko: '난 한 장도 못 받았는데.' },
       { who: 'Charlie Brown (reading)',
-        en: { text: '"To the {} {} who brings me {}."', blanks: ['round-headed', 'kid', 'supper'] },
-        ko: '"나에게 저녁을 가져다주는 머리가 둥근 꼬마에게."' },
+        en: { text: '"To the {} brings me supper."', blanks: ['round-headed kid who'] },
+        ko: '"나에게 저녁을 가져다주는 머리가 둥근 꼬마에게."',
+        grammar: 'RELATIVE_WHO' },
       { who: 'Charlie Brown (reading)',
         en: { text: "\"Happy Valentine's Day.\"", blanks: [] },
         ko: '"행복한 발렌타인 데이 보내."' },
       { who: 'Charlie Brown',
-        en: { text: "I know I should be {}, but I'll take it.", blanks: ['embarrassed'] },
-        ko: '창피해야 한다는 건 알지만, 그래도 받을게.' },
+        en: { text: "I know I {} embarrassed, but I'll take it.", blanks: ['should be'] },
+        ko: '창피해야 한다는 건 알지만, 그래도 받을게.',
+        grammar: 'MODAL_DUTY' },
       { who: 'Charlie Brown',
         en: { text: 'Thanks, old {}.', blanks: ['pal'] },
         ko: '고맙다 친구야.' },
       { who: 'Narrator',
-        en: { text: 'Charlie Brown sure is {} about getting mail.', blanks: ['excited'] },
-        ko: '찰리 브라운은 우편물 받는 걸 정말 좋아하는구나.' },
+        en: { text: 'Charlie Brown sure {} getting mail.', blanks: ['is excited about'] },
+        ko: '찰리 브라운은 우편물 받는 걸 정말 좋아하는구나.',
+        grammar: 'BE_EXCITED_ABOUT' },
     ],
   },
   {
@@ -413,38 +529,44 @@ const scenes = [
         en: { text: 'Hello, my sweet {}!', blanks: ['baboo'] },
         ko: '안녕, 나의 귀염둥이!' },
       { who: 'Sally',
-        en: { text: "Nothing says Valentine's Day like a {} card.", blanks: ['homemade'] },
-        ko: '직접 만든 카드만큼 발렌타인 데이에 어울리는 건 없지.' },
+        en: { text: "{} Valentine's Day {} a {} card.", blanks: ['Nothing says', 'like', 'homemade'] },
+        ko: '직접 만든 카드만큼 발렌타인 데이에 어울리는 건 없지.',
+        grammar: 'NOTHING_LIKE' },
       { who: 'Sally',
         en: { text: "Let's see...", blanks: [] },
         ko: '보자...' },
       { who: 'Sally',
-        en: { text: 'I need to add some {}, {}, and the ultimate {} touch:', blanks: ['glue', 'sparkles', 'finishing'] },
-        ko: '풀이랑 반짝이도 좀 넣고, 마지막 결정적인 한 방으로,' },
+        en: { text: 'I {} some glue, sparkles, and the ultimate {} touch:', blanks: ['need to add', 'finishing'] },
+        ko: '풀이랑 반짝이도 좀 넣고, 마지막 결정적인 한 방으로,',
+        grammar: 'NEED_TO_V' },
       { who: 'Sally',
         en: { text: 'a macaroni {}.', blanks: ['self-portrait'] },
         ko: '마카로니 자화상을 붙여야지.' },
       { who: 'Sally',
-        en: { text: '{}!', blanks: ['Perfection'] },
+        en: { text: 'Perfection!', blanks: [] },
         ko: '완벽해!' },
       { who: 'Sally',
-        en: { text: 'Snoopy, I need you to {} this.', blanks: ['take'] },
-        ko: '스누피, 이것 좀 가져가 줘.' },
+        en: { text: 'Snoopy, I {} take this.', blanks: ['need you to'] },
+        ko: '스누피, 이것 좀 가져가 줘.',
+        grammar: 'NEED_O_TO_V' },
       { who: 'Sally',
         en: { text: "It's not for you.", blanks: [] },
         ko: '네 거 아니야.' },
       { who: 'Sally',
-        en: { text: 'I need you to {} it.', blanks: ['deliver'] },
-        ko: '배달해 줘야 해.' },
+        en: { text: 'I {} deliver it.', blanks: ['need you to'] },
+        ko: '배달해 줘야 해.',
+        grammar: 'NEED_O_TO_V' },
       { who: 'Sally',
-        en: { text: "After all, there's nothing {} than a personal {}.", blanks: ['classier', 'courier'] },
-        ko: '결국 개인 심부름꾼만큼 품격 있는 건 없으니까.' },
+        en: { text: "After all, there's {} a personal courier.", blanks: ['nothing classier than'] },
+        ko: '결국 개인 심부름꾼만큼 품격 있는 건 없으니까.',
+        grammar: 'NOTHING_THAN' },
       { who: 'Sally',
         en: { text: 'Take it to my sweet baboo.', blanks: [] },
         ko: '내 귀염둥이에게 가져다줘.' },
       { who: 'Sally',
-        en: { text: "He's the one who puts a {} in my heart.", blanks: ['song'] },
-        ko: '그는 내 마음에 노래를 불러주는 사람이야.' },
+        en: { text: "He's {} puts a song in my heart.", blanks: ['the one who'] },
+        ko: '그는 내 마음에 노래를 불러주는 사람이야.',
+        grammar: 'RELATIVE_WHO' },
       { who: 'Sally',
         en: { text: 'Got it?', blanks: [] },
         ko: '알겠지?' },
@@ -462,8 +584,9 @@ const scenes = [
         en: { text: 'This is for {}?', blanks: ['me'] },
         ko: '이게 내 거라고?' },
       { who: 'Sally',
-        en: { text: 'That {} be my sweet baboo!', blanks: ['must'] },
-        ko: '내 귀염둥이임에 틀림없어!' },
+        en: { text: 'That {} my sweet baboo!', blanks: ['must be'] },
+        ko: '내 귀염둥이임에 틀림없어!',
+        grammar: 'MODAL_GUESS' },
       { who: 'Sally',
         en: { text: "I'll {} he really liked my macaroni portrait.", blanks: ['bet'] },
         ko: '내 마카로니 초상화를 정말 좋아했을 거야.' },
@@ -477,14 +600,17 @@ const scenes = [
         en: { text: 'This is {}!', blanks: ['outrageous'] },
         ko: '이건 말도 안 돼!' },
       { who: 'Sally',
-        en: { text: "I mean, I'm {} you liked it, Schroeder.", blanks: ['glad'] },
-        ko: '내 말은, 네가 좋아했다니 다행이네, 슈로더.' },
+        en: { text: "I mean, I'm {} it, Schroeder.", blanks: ['glad you liked'] },
+        ko: '내 말은, 네가 좋아했다니 다행이네, 슈로더.',
+        grammar: 'BE_ADJ_THAT' },
       { who: 'Sally',
-        en: { text: 'Snoopy, you {} my Valentine to the {} person!', blanks: ['gave', 'wrong'] },
-        ko: '스누피, 내 발렌타인 카드를 엉뚱한 사람한테 줬잖아!' },
+        en: { text: 'Snoopy, you {} the wrong person!', blanks: ['gave my Valentine to'] },
+        ko: '스누피, 내 발렌타인 카드를 엉뚱한 사람한테 줬잖아!',
+        grammar: 'GIVE_OBJ_TO' },
       { who: 'Sally',
-        en: { text: 'Now I have to make another {} that {} the true {} of my love.', blanks: ['masterpiece', 'captures', 'depth'] },
-        ko: '이제 내 사랑의 깊이를 담은 또 다른 걸작을 만들어야 하잖아.' },
+        en: { text: 'Now I have to make another masterpiece {} the true depth of my love.', blanks: ['that captures'] },
+        ko: '이제 내 사랑의 깊이를 담은 또 다른 걸작을 만들어야 하잖아.',
+        grammar: 'RELATIVE_THAT' },
       { who: 'Sally',
         en: { text: "You think that's {}?", blanks: ['easy'] },
         ko: '이게 쉬운 줄 아니?' },
@@ -505,35 +631,42 @@ const scenes = [
     titleKo: '장면 4 — 마지막 결말',
     speakers: [
       { who: 'Charlie Brown',
-        en: { text: "Sally, I'm the {} person to give {} on Valentine's Day,", blanks: ['last', 'advice'] },
-        ko: '샐리, 내가 발렌타인 데이에 대해 조언할 처지는 아니지만,' },
+        en: { text: "Sally, I'm {} give advice on Valentine's Day,", blanks: ['the last person to'] },
+        ko: '샐리, 내가 발렌타인 데이에 대해 조언할 처지는 아니지만,',
+        grammar: 'LAST_TO_V' },
       { who: 'Charlie Brown',
-        en: { text: "but have you {} that it might not be Snoopy's {}?", blanks: ['considered', 'fault'] },
-        ko: '이게 스누피 잘못이 아닐 수도 있다는 생각은 안 해봤니?' },
+        en: { text: "but {} that it {} Snoopy's fault?", blanks: ['have you considered', 'might not be'] },
+        ko: '이게 스누피 잘못이 아닐 수도 있다는 생각은 안 해봤니?',
+        grammar: 'PRESENT_PERFECT_Q' },
       { who: 'Charlie Brown',
-        en: { text: "Maybe he wasn't {} who your sweet baboo is.", blanks: ['sure'] },
-        ko: '아마 네 귀염둥이가 누구인지 잘 몰랐을 수도 있잖아.' },
+        en: { text: "Maybe he wasn't {} your sweet baboo is.", blanks: ['sure who'] },
+        ko: '아마 네 귀염둥이가 누구인지 잘 몰랐을 수도 있잖아.',
+        grammar: 'BE_ADJ_WH' },
       { who: 'Sally',
-        en: { text: 'Well, he could have just {} me!', blanks: ['asked'] },
-        ko: '그럼 그냥 나한테 물어봤으면 됐잖아!' },
+        en: { text: 'Well, he {} me!', blanks: ['could have just asked'] },
+        ko: '그럼 그냥 나한테 물어봤으면 됐잖아!',
+        grammar: 'COULD_HAVE_PP' },
       { who: 'Sally',
-        en: { text: "It doesn't {} now.", blanks: ['matter'] },
+        en: { text: "It {} now.", blanks: ["doesn't matter"] },
         ko: '이제 상관없어.' },
       { who: 'Sally',
-        en: { text: "Valentine's Day is {}.", blanks: ['ruined'] },
-        ko: '발렌타인 데이는 완전히 망쳤어.' },
+        en: { text: "Valentine's Day {}.", blanks: ['is ruined'] },
+        ko: '발렌타인 데이는 완전히 망쳤어.',
+        grammar: 'PASSIVE' },
       { who: 'Charlie Brown',
         en: { text: "It's not your {}, Snoopy.", blanks: ['fault'] },
         ko: '네 잘못이 아니야 스누피.' },
       { who: 'Charlie Brown',
-        en: { text: "It's just Valentine's Day {} a lot to Sally.", blanks: ['means'] },
-        ko: '그냥 샐리한테 발렌타인 데이가 의미가 커서 그래.' },
+        en: { text: "It's just Valentine's Day {} Sally.", blanks: ['means a lot to'] },
+        ko: '그냥 샐리한테 발렌타인 데이가 의미가 커서 그래.',
+        grammar: 'MEANS_A_LOT' },
       { who: 'Friends',
-        en: { text: "Because you {} so many nice Valentine's Day cards for everyone,", blanks: ['made'] },
+        en: { text: "Because you made {} nice Valentine's Day cards for everyone,", blanks: ['so many'] },
         ko: '네가 모두를 위해 예쁜 발렌타인 카드를 많이 만들어줘서,' },
       { who: 'Friends',
-        en: { text: 'we wanted to do something {} for you.', blanks: ['special'] },
-        ko: '우리도 널 위해 특별한 걸 준비하고 싶었어.' },
+        en: { text: 'we {} something special for you.', blanks: ['wanted to do'] },
+        ko: '우리도 널 위해 특별한 걸 준비하고 싶었어.',
+        grammar: 'WANT_TO_V' },
       { who: 'Friends',
         en: { text: "Happy Valentine's Day!", blanks: [] },
         ko: '해피 발렌타인 데이!' },
@@ -547,14 +680,114 @@ const scenes = [
         en: { text: 'You even got the macaroni-to-sparkle {} just right.', blanks: ['ratio'] },
         ko: '마카로니와 반짝이 비율을 아주 딱 맞게 맞췄구나.' },
       { who: 'Charlie Brown',
-        en: { text: 'Huh, who knew a day in the {} of February', blanks: ['middle'] },
-        ko: '허, 2월 한복판의 어느 하루가' },
+        en: { text: 'Huh, {} a day in the middle of February', blanks: ['who knew'] },
+        ko: '허, 2월 한복판의 어느 하루가',
+        grammar: 'WHO_KNEW' },
       { who: 'Charlie Brown',
         en: { text: 'could bring so many people {}?', blanks: ['together'] },
         ko: '이렇게 많은 사람을 하나로 모을 줄 누가 알았겠어?' },
     ],
   },
 ];
+
+// ── 문법 패턴 정의 ──────────────────────────────────────
+const grammarPatterns = {
+  MODAL_GUESS: {
+    label: '조동사 추측',
+    formula: 'must / might + be',
+    note: '~임에 틀림없다 (강한 확신) / ~일지도 모른다 (약한 추측). be 동사가 자주 따라옴.',
+  },
+  MODAL_DUTY: {
+    label: '조동사 의무',
+    formula: 'should + be / V',
+    note: '~해야 한다, ~하는 게 마땅하다. 의무·당위·예상.',
+  },
+  COULD_HAVE_PP: {
+    label: '가정법 과거완료 (could have)',
+    formula: 'could have + p.p.',
+    note: '~할 수도 있었는데 (실제로는 안 했다) — 후회·아쉬움을 표현.',
+  },
+  RELATIVE_WHO: {
+    label: '관계대명사 who',
+    formula: '사람 + who + V',
+    note: '앞의 사람을 꾸며줄 때 who 로 이어 붙인다. (the one who…, the kid who…)',
+  },
+  RELATIVE_THAT: {
+    label: '관계대명사 that',
+    formula: '사물 + that + V',
+    note: '사물·동물을 꾸며줄 때 that 으로 이어 붙인다. which 와 바꿔 쓸 수 있음.',
+  },
+  NEED_O_TO_V: {
+    label: '~에게 …하도록 하다',
+    formula: 'need + 사람 + to V',
+    note: '"~가 ~해주기를 원/필요로 한다." want / ask / tell 도 같은 구조.',
+  },
+  NEED_TO_V: {
+    label: '~할 필요가 있다',
+    formula: 'need to + V',
+    note: '주어가 직접 ~할 필요가 있다. need + 동사원형.',
+  },
+  NOTHING_LIKE: {
+    label: 'Nothing ~ like',
+    formula: 'Nothing says A like B',
+    note: '"B만큼 A를 잘 표현하는 건 없다" — 강조 구문.',
+  },
+  NOTHING_THAN: {
+    label: 'Nothing 비교급 than',
+    formula: 'Nothing 비교급 + than',
+    note: '"~보다 더 ~한 것은 없다" → 사실상 최상급 의미.',
+  },
+  PRESENT_PERFECT_Q: {
+    label: '현재완료 의문문',
+    formula: 'Have you (ever) + p.p. ?',
+    note: '"~해본 적 있니? / ~해봤니?" — 경험·완료를 묻는다.',
+  },
+  PASSIVE: {
+    label: '수동태',
+    formula: 'be + p.p.',
+    note: '주어가 동작을 당하는 표현. (ruined = 망가진 / 망쳐진 상태)',
+  },
+  LAST_TO_V: {
+    label: 'the last + 명사 + to V',
+    formula: 'the last person to V',
+    note: '"~할 사람이 결코 아니다" — 반어법으로 강한 부정을 표현.',
+  },
+  BE_ADJ_THAT: {
+    label: 'be + 감정 형용사 + (that) 절',
+    formula: "I'm glad / sorry (that) S V",
+    note: '감정 형용사 뒤에 절이 옴. that 은 자주 생략됨.',
+  },
+  BE_ADJ_WH: {
+    label: 'be + 형용사 + 의문사절',
+    formula: 'be sure who / what / where ...',
+    note: '"누가/무엇이 …인지 확신한다(아니다)" — 의문사가 명사절을 이끈다.',
+  },
+  WHO_KNEW: {
+    label: '수사 의문문 — Who knew',
+    formula: 'Who knew (that) … ?',
+    note: '"누가 ~할 줄 알았겠어!" — 놀라움·감탄을 나타내는 수사 의문문.',
+  },
+  WANT_TO_V: {
+    label: 'want + to V',
+    formula: 'want / wanted + to V',
+    note: '~하고 싶다 / ~하고 싶었다.',
+  },
+  GIVE_OBJ_TO: {
+    label: 'give + 사물 + to + 사람',
+    formula: 'give A to B',
+    note: '"B에게 A를 주다." 4형식 (give B A) 을 3형식으로 바꾼 형태.',
+  },
+  BE_EXCITED_ABOUT: {
+    label: 'be + 감정 형용사 + about',
+    formula: 'be excited / nervous / happy + about',
+    note: '~에 대해 신이 나다 / 들뜨다. about 뒤에는 명사·동명사가 옴.',
+  },
+  MEANS_A_LOT: {
+    label: 'mean a lot to ~',
+    formula: 'mean a lot to + 사람',
+    note: '~에게 큰 의미가 있다 / 많은 의미를 가진다.',
+  },
+};
 
 const learningTips = [
   { term: 'Sweet Baboo', tip: '샐리가 라이너스를 부르는 애칭. "귀염둥이" 정도로 해석돼요.' },
@@ -573,17 +806,38 @@ function shuffle(arr) {
 }
 
 function normalize(s) {
-  return (s || '').toLowerCase().trim().replace(/[.,!?;:'"]/g, '');
+  return (s || '')
+    .toLowerCase()
+    .trim()
+    .replace(/[.,!?;:'"]/g, '')
+    .replace(/\s+/g, ' ');
 }
 
 // ── Components ───────────────────────────────────────────
+function GrammarBadge({ tag }) {
+  if (!tag) return null;
+  const g = grammarPatterns[tag];
+  if (!g) return null;
+  return (
+    <span
+      className="grammar-tag"
+      title={`${g.formula}\n\n${g.note}`}
+    >
+      {g.label}
+    </span>
+  );
+}
+
 function FillBlankLine({ line, lineIdx, sceneIdx, answers, setAnswers, showAnswers }) {
   const parts = line.en.text.split('{}');
   const blanks = line.en.blanks;
 
   return (
     <div className="line">
-      <div className="who">{line.who}</div>
+      <div className="who">
+        {line.who}
+        <GrammarBadge tag={line.grammar} />
+      </div>
       <div className="en">
         {parts.map((part, i) => {
           if (i >= blanks.length) return <span key={i}>{part}</span>;
@@ -608,7 +862,11 @@ function FillBlankLine({ line, lineIdx, sceneIdx, answers, setAnswers, showAnswe
                   onChange={(e) => setAnswers((p) => ({ ...p, [key]: e.target.value }))}
                   readOnly={showAnswers}
                   placeholder="____"
-                  style={{ width: `${Math.max(correct.length + 2, 6)}ch` }}
+                  style={{
+                    minWidth: '6ch',
+                    width: `${Math.max(correct.length + 2, 6)}ch`,
+                    maxWidth: '100%',
+                  }}
                 />
                 {showAnswers && <span className="answer-tag">정답</span>}
               </span>
@@ -628,7 +886,11 @@ function Scene({ scene, sceneIdx, answers, setAnswers }) {
     () => scene.speakers.flatMap((s) => s.en.blanks),
     [scene]
   );
-  const wordBox = useMemo(() => shuffle(allBlanks), [allBlanks]);
+  // 단어 상자에서는 같은 청크 중복 제거 (예: "must be" 가 두 번 등장해도 한 번만)
+  const wordBox = useMemo(
+    () => shuffle(Array.from(new Set(allBlanks))),
+    [allBlanks]
+  );
 
   const filledCount = scene.speakers.reduce((acc, line, lineIdx) => {
     return (
@@ -703,9 +965,94 @@ function Scene({ scene, sceneIdx, answers, setAnswers }) {
   );
 }
 
+// 같은 문법 태그를 가진 모든 문장을 모아서 보여주는 패턴 연습 탭
+function PatternPractice() {
+  // 1) 모든 장면을 돌면서 grammar 태그가 있는 문장만 수집
+  const grouped = useMemo(() => {
+    const map = {};
+    scenes.forEach((scene, sIdx) => {
+      scene.speakers.forEach((line) => {
+        if (!line.grammar) return;
+        if (!map[line.grammar]) map[line.grammar] = [];
+        map[line.grammar].push({
+          sceneId: scene.id,
+          sceneIdx: sIdx,
+          who: line.who,
+          ko: line.ko,
+          // 빈칸 자리에 정답을 다시 끼워 넣어 완성 문장 생성
+          en: line.en.text.replace(/\{\}/g, () => '__CHUNK__'),
+          chunks: line.en.blanks,
+        });
+      });
+    });
+    return map;
+  }, []);
+
+  // 2) grammarPatterns 정의 순서대로 카드를 렌더링 (정의되어 있으나 예문 없는 패턴은 생략)
+  const patternIds = Object.keys(grammarPatterns).filter(
+    (id) => grouped[id] && grouped[id].length > 0
+  );
+
+  return (
+    <section>
+      <div className="pattern-intro">
+        <h2>패턴 연습 · Grammar Patterns</h2>
+        <p>
+          같은 문법 패턴을 가진 문장끼리 모았어요. 같은 구조가 반복되면
+          머릿속에 더 잘 박혀요. 노란 부분이 핵심 청크예요.
+        </p>
+      </div>
+
+      {patternIds.map((id) => {
+        const g = grammarPatterns[id];
+        const examples = grouped[id];
+        return (
+          <div className="pattern-card" key={id}>
+            <div className="pattern-card-head">
+              <span className="pattern-label">{g.label}</span>
+              <code className="pattern-formula">{g.formula}</code>
+              <p className="pattern-note">{g.note}</p>
+            </div>
+
+            <div className="pattern-examples">
+              {examples.map((ex, i) => {
+                // __CHUNK__ 자리들을 chunks 배열의 값으로 차례차례 치환하며 렌더
+                const segments = ex.en.split('__CHUNK__');
+                return (
+                  <div className="pattern-example" key={i}>
+                    <div className="ex-loc">
+                      Scene {ex.sceneId} · {ex.who}
+                    </div>
+                    <div className="ex-en">
+                      {segments.map((seg, j) => (
+                        <React.Fragment key={j}>
+                          <span>{seg}</span>
+                          {j < ex.chunks.length && (
+                            <span className="chunk">{ex.chunks[j]}</span>
+                          )}
+                        </React.Fragment>
+                      ))}
+                    </div>
+                    <div className="ex-ko">{ex.ko}</div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })}
+    </section>
+  );
+}
+
+const PATTERN_TAB = 'patterns';
+
 function App() {
-  const [activeScene, setActiveScene] = useState(0);
+  // activeView: 0~3 = 장면 인덱스, 'patterns' = 패턴 연습 탭
+  const [activeView, setActiveView] = useState(0);
   const [answers, setAnswers] = useState({});
+  const isPatternView = activeView === PATTERN_TAB;
+  const activeScene = isPatternView ? 0 : activeView;
 
   return (
     <div className="app">
@@ -721,8 +1068,8 @@ function App() {
         {scenes.map((s, i) => (
           <button
             key={s.id}
-            className={'tab' + (activeScene === i ? ' active' : '')}
-            onClick={() => setActiveScene(i)}
+            className={'tab' + (!isPatternView && activeScene === i ? ' active' : '')}
+            onClick={() => setActiveView(i)}
           >
             <span className="tab-num">Scene {s.id}</span>
             <span className="tab-label">
@@ -730,15 +1077,26 @@ function App() {
             </span>
           </button>
         ))}
+        <button
+          className={'tab' + (isPatternView ? ' active' : '')}
+          onClick={() => setActiveView(PATTERN_TAB)}
+        >
+          <span className="tab-num">Grammar</span>
+          <span className="tab-label">패턴 연습</span>
+        </button>
       </nav>
 
       <main className="main">
-        <Scene
-          scene={scenes[activeScene]}
-          sceneIdx={activeScene}
-          answers={answers}
-          setAnswers={setAnswers}
-        />
+        {isPatternView ? (
+          <PatternPractice />
+        ) : (
+          <Scene
+            scene={scenes[activeScene]}
+            sceneIdx={activeScene}
+            answers={answers}
+            setAnswers={setAnswers}
+          />
+        )}
 
         <aside className="tips">
           <h3>학습 팁</h3>
@@ -761,8 +1119,9 @@ function App() {
       </main>
 
       <footer className="app-footer">
-        단어 상자에서 정답 단어를 찾아 빈칸에 입력해 보세요.
-        막히면 <em>정답 보기</em> 버튼을 눌러 확인할 수 있어요.
+        단어 상자에서 정답 청크를 찾아 빈칸에 입력해 보세요.
+        파란 <strong>문법 뱃지</strong>에 마우스를 올리면 패턴 설명이 나와요.
+        같은 패턴은 <em>패턴 연습</em> 탭에서 한꺼번에 볼 수 있어요.
       </footer>
     </div>
   );
